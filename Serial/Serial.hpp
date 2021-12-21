@@ -33,6 +33,7 @@ namespace SerialXP
 
   class Device
   {
+    static constexpr DWORD event_mask = EV_RXCHAR | EV_TXEMPTY | EV_ERR | EV_BREAK;
   public:
     constexpr Device() noexcept = default;
 
@@ -47,7 +48,7 @@ namespace SerialXP
 
     int open(const char* port) noexcept
     {
-      _hPort = CreateFileA(port, GENERIC_READ | GENERIC_WRITE, 0, 0, OPEN_EXISTING, FILE_FLAG_WRITE_THROUGH, 0);
+      _hPort = CreateFileA(port, GENERIC_READ | GENERIC_WRITE, 0, 0, OPEN_EXISTING, FILE_FLAG_WRITE_THROUGH | FILE_FLAG_OVERLAPPED, 0);
  
       if (INVALID_HANDLE_VALUE == _hPort) return GetLastError();
       _eventOverlapped = { 0 };
@@ -60,6 +61,9 @@ namespace SerialXP
       );
       if (INVALID_HANDLE_VALUE == _eventOverlapped.hEvent) return GetLastError();
       
+
+      SetCommMask(_Port, event_mask);
+
       else return 0;
     }
 
@@ -134,9 +138,6 @@ namespace SerialXP
     int write(const void* data, size_t count) noexcept
     {
       DWORD written;
-
-      _events &= ~EV_TXEMPTY;
-      SetCommMask(_hPort, EV_TXEMPTY);
       
       if (false == WriteFile(_hPort, data, count, &written, nullptr))
       {
@@ -161,23 +162,65 @@ namespace SerialXP
       }
     }
 
-    int waitEvent() noexcept
+    int receiveQueueLength() const noexcept
     {
-      while (0 == (_events & EV_TXEMPTY))
+      return _status.cbInQue;
+    }
+
+    int transmitQueueLength() const noexcept
+    {
+      return _status.cbOutQue;
+    }
+
+    int errorFlags() const noexcept
+    {
+      return _errors;
+    }
+
+    int poll(unsigned int timeout) noexcept
+    {
+      ClearCommError(_hPort, &_errors, &_status);
+      if (_status.cbInQue == 0)
       {
-        if (WaitCommEvent(_hPort, &_events, nullptr))
+        if (WaitCommEvent(_hPort, &_events, _eventOverlapped))
         {
-          continue;
+          return _events;
         }
         else
         {
-          return GetLastError();
+          DWORD error = GetLastError();
+          if (error == ERROR_IO_PENDING)
+          {
+            error = WaitForSingleObject(_eventOverlapped.hEvent, timeout);
+            DWORD dummy;
+            switch (error)
+            {
+              case WAIT_OBJECT_0;
+                if (GetOverlappedResult(_hPort, _eventOverlapped, &dummy, false))
+                  return _events;
+                else
+                  return GetLastError();
+              case WAIT_TIMEOUT:
+                // calling SetCommMask forces WaitCommEvent() to cancel
+                SetCommMask(_hPort, event_mask);
+                return 0;
+              case WAIT_FAILED:
+                return GetLastError();
+              case WAIT_ABANDONED:
+              default:
+                // Something went wrong, but there's no way to get more details here
+                return 0;
+            }
+          }
+          else
+          {
+            return error;
+          }
         }
       }
       return _events;
     }
 
-    bool transmitComplete() const noexcept { return (_events& EV_TXEMPTY) == EV_TXEMPTY;  }
 
     int purge(Purge type) noexcept
     {
@@ -208,6 +251,8 @@ namespace SerialXP
   private:
     HANDLE _hPort;
     DWORD  _events;
+    DWORD  _errors;
     OVERLAPPED _eventOverlapped;
+    COMSTAT _status;
   };
 }

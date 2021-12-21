@@ -122,12 +122,14 @@ namespace Serial
     {
       if (status == 0)
       {
-        status = SerialEnum_Next();
         if (status == 0)
           info = SerialEnum_GetDeviceInfo();
         else
           info = nullptr;
+
+        status = SerialEnum_Next();
       }
+      else info = nullptr;
      
       return *this;
     }
