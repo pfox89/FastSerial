@@ -1,7 +1,5 @@
 ﻿#pragma once
 
-#include <cstdint>
-
 #ifndef API
 #ifdef WIN32
 #define API __declspec(dllimport)
@@ -10,18 +8,25 @@
 #endif
 #endif
 
-
 /// Possible types of bus this device can be connected to
+
+#ifdef __cplusplus 
 enum class SerialBusType
+#else
+enum SerialBusType
+#endif
 {
   BUS_UNKNOWN,
   BUS_USB,
   BUS_PCI
 };
 
+
 /// Information about device
 struct SerialDeviceInfo
 {
+  /// Logical device path (e.g. interface)
+  const char* lpath;
   /// Physical device path
   const char* path;
   /// Device name
@@ -30,12 +35,12 @@ struct SerialDeviceInfo
   const char* description;
   /// Device manufacturer string
   const char* manufacturer;
+  /// Numeric vendor id (VID on USB, VEN on PCI)
+  unsigned short vid;
+  /// Numeric device id (PID on USB, DEV on PCI)
+  unsigned short pid;
   /// Type of bus device is connected to
   SerialBusType type;
-  /// Numeric vendor id (VID on USB, VEN on PCI)
-  uint16_t vid;
-  /// Numeric device id (PID on USB, DEV on PCI)
-  uint16_t pid;
 };
 
 #ifdef __cplusplus 
@@ -52,16 +57,11 @@ extern "C" {
   /// Start enumerating devices
   /// \returns Status/error code of system_category type
   /// \remarks Always call SerialEnum_Finish after this function to free resources allocated
-  API int32_t SerialEnum_StartEnumeration();
+  API int SerialEnum_StartEnumeration();
 
-  /// Get next device
+  /// Gets info for next device
   /// \returns Status/error code of system_category type
-  API int32_t SerialEnum_Next();
-
-  /// Gets info for current device
-  /// \param info Pointer to structure to store info
-  /// \returns Structure containing device info
-  API int32_t SerialEnum_GetDeviceInfo(SerialDeviceInfo* info);
+  API int SerialEnum_Next(SerialDeviceInfo* info);
 
   /// Finish enumeration, freeing all associated resources
   API void SerialEnum_Finish();
@@ -69,9 +69,10 @@ extern "C" {
 #ifdef __cplusplus 
 }
 
-
 /// Stream extraction operator to print SerialBusType
 API std::ostream& operator<<(std::ostream& os, SerialBusType type) noexcept;
+
+API std::ostream& operator<<(std::ostream& os, const SerialDeviceInfo& port) noexcept;
 
 inline std::string to_string(SerialBusType type) noexcept
 {
@@ -109,10 +110,7 @@ namespace Serial
     {
       if (status == 0)
       {
-        
-        status = SerialEnum_GetDeviceInfo(&info);
-         
-        status = SerialEnum_Next();
+        status = SerialEnum_Next(&info);
       }
      
       return *this;
@@ -129,7 +127,7 @@ namespace Serial
 
     bool operator!=(const PortIter&) const noexcept
     {
-      return (info.name != nullptr);
+      return (status == 0);
     }
 
     ~PortIter() noexcept
