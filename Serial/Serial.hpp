@@ -110,7 +110,8 @@ namespace SerialXP
       COMMTIMEOUTS co;
       if (timeout > 0)
       {
-          // This should implement something similar POSIX non-canonical mode with VMIN=0
+          // Wait timeout ms or until at least 1 byte is in receive buffer and return with bytes in receive buffer
+          // Similar to POSIX non-canonoical mode with VMIN=0
           co.ReadIntervalTimeout = MAXDWORD;
           co.ReadTotalTimeoutMultiplier = MAXDWORD;
           co.ReadTotalTimeoutConstant = timeout;
@@ -191,25 +192,17 @@ namespace SerialXP
           DWORD error = GetLastError();
           if (error == ERROR_IO_PENDING)
           {
-            error = WaitForSingleObject(_eventOverlapped.hEvent, timeout);
             DWORD dummy;
-            switch (error)
+            if (GetOverlappedResultEx(_hPort, _eventOverlapped, &dummy, timeout, false))
             {
-              case WAIT_OBJECT_0;
-                if (GetOverlappedResult(_hPort, _eventOverlapped, &dummy, false))
-                  return _events;
-                else
-                  return GetLastError();
-              case WAIT_TIMEOUT:
-                // calling SetCommMask forces WaitCommEvent() to cancel
-                SetCommMask(_hPort, event_mask);
-                return 0;
-              case WAIT_FAILED:
-                return GetLastError();
-              case WAIT_ABANDONED:
-              default:
-                // Something went wrong, but there's no way to get more details here
-                return 0;
+              return _events;
+            }
+            else
+            {
+              // calling SetCommMask forces WaitCommEvent() to cancel
+              SetCommMask(_hPort, event_mask);
+              // Update status to ensure we didn't miss anything between the wait and cancellation
+              ClearCommError(_hPort, &_errors, &_status);
             }
           }
           else
@@ -218,6 +211,16 @@ namespace SerialXP
           }
         }
       }
+
+      if (_status.cbInQue != 0)
+      {
+        _events |= EV_RXCHAR;
+      }
+      if (_status.cbOutQue == 0)
+      {
+        _events |= EV_TXEMPTY;
+      }
+
       return _events;
     }
 
