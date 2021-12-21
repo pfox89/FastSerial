@@ -10,13 +10,6 @@
 #endif
 #endif
 
-/// C compatible string with length
-struct SerialAPIString
-{
-  char*    data;
-  uint16_t length;
-  uint16_t capacity;
-};
 
 /// Possible types of bus this device can be connected to
 enum class SerialBusType
@@ -30,13 +23,13 @@ enum class SerialBusType
 struct SerialDeviceInfo
 {
   /// Physical device path
-  SerialAPIString path;
+  const char* path;
   /// Device name
-  SerialAPIString name;
+  const char* name;
   /// Device description
-  SerialAPIString description;
+  const char* description;
   /// Device manufacturer string
-  SerialAPIString manufacturer;
+  const char* manufacturer;
   /// Type of bus device is connected to
   SerialBusType type;
   /// Numeric vendor id (VID on USB, VEN on PCI)
@@ -66,8 +59,9 @@ extern "C" {
   API int32_t SerialEnum_Next();
 
   /// Gets info for current device
+  /// \param info Pointer to structure to store info
   /// \returns Structure containing device info
-  API const struct SerialDeviceInfo* SerialEnum_GetDeviceInfo();
+  API int32_t SerialEnum_GetDeviceInfo(SerialDeviceInfo* info);
 
   /// Finish enumeration, freeing all associated resources
   API void SerialEnum_Finish();
@@ -75,16 +69,9 @@ extern "C" {
 #ifdef __cplusplus 
 }
 
-/// Stream insertion operator to help print SerialAPIStrings
-API std::ostream& operator<<(std::ostream& os, const SerialAPIString& str) noexcept;
 
 /// Stream extraction operator to print SerialBusType
 API std::ostream& operator<<(std::ostream& os, SerialBusType type) noexcept;
-
-inline std::string to_string(const SerialAPIString& str) noexcept
-{
-  return std::string(str.data, str.length);
-}
 
 inline std::string to_string(SerialBusType type) noexcept
 {
@@ -99,16 +86,16 @@ namespace Serial
   struct PortIter
   {
     int32_t status;
-    const SerialDeviceInfo* info;
+    SerialDeviceInfo info;
 
     PortIter() noexcept
-      : status(SerialEnum_StartEnumeration()), info(nullptr)
+      : status(SerialEnum_StartEnumeration()), info{}
     {
       ++(*this);
     }
 
     PortIter(int) noexcept
-      : status(INT32_MAX), info(nullptr)
+      : status(INT32_MAX), info{}
     {}
 
     PortIter(const PortIter&) = delete;
@@ -122,30 +109,27 @@ namespace Serial
     {
       if (status == 0)
       {
-        if (status == 0)
-          info = SerialEnum_GetDeviceInfo();
-        else
-          info = nullptr;
-
+        
+        status = SerialEnum_GetDeviceInfo(&info);
+         
         status = SerialEnum_Next();
       }
-      else info = nullptr;
      
       return *this;
     }
 
     const SerialDeviceInfo& operator*() const noexcept
     {
-      return *info;
+      return info;
     }
     const SerialDeviceInfo* operator->() const noexcept
     {
-      return info;
+      return &info;
     }
 
     bool operator!=(const PortIter&) const noexcept
     {
-      return (info != nullptr);
+      return (info.name != nullptr);
     }
 
     ~PortIter() noexcept
