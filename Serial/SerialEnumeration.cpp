@@ -2,17 +2,17 @@
 #include <ostream>
 #include <iomanip>
 
-#ifdef _WIN32
-#define API __declspec(dllexport)
-#else
-#define API [[gnu::visibility("default")]]
-#endif
-
 #include "SerialEnumeration.h"
+
+#ifdef _WIN32
+#define EXPORTING __declspec(dllexport)
+#else
+#define EXPORTING [[gnu::visibility("default")]]
+#endif
 
 extern "C"
 {
-API const char* to_cstring(SerialBusType type)
+  EXPORTING const char* to_cstring(SerialBusType type)
 {
   switch (type)
   {
@@ -26,12 +26,12 @@ API const char* to_cstring(SerialBusType type)
 }
 }
 
-API std::ostream& operator<<(std::ostream& os, SerialBusType type) noexcept
+EXPORTING std::ostream& operator<<(std::ostream& os, SerialBusType type) noexcept
 {
   return os << to_cstring(type);
 }
 
-API std::ostream& operator<<(std::ostream& os, const SerialDeviceInfo& port) noexcept
+EXPORTING std::ostream& operator<<(std::ostream& os, const SerialDeviceInfo& port) noexcept
 {
   static constexpr std::streamsize width = 16;
 

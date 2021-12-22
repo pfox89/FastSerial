@@ -1,16 +1,17 @@
 ﻿#pragma once
 
-#ifndef API
-#ifdef WIN32
-#define API __declspec(dllimport)
-#else
-#define API
+#if defined(_WIN32)
+#  if defined(EXPORTING_SERIAL)
+#    define DECLSPEC __declspec(dllexport)
+#  else
+#    define DECLSPEC __declspec(dllimport)
+#  endif
+#else // non windows
+#  define DECLSPEC
 #endif
-#endif
-
-/// Possible types of bus this device can be connected to
 
 #ifdef __cplusplus 
+/// Possible types of bus this device can be connected to
 enum class SerialBusType
 #else
 enum SerialBusType
@@ -20,7 +21,6 @@ enum SerialBusType
   BUS_USB,
   BUS_PCI
 };
-
 
 /// Information about device
 struct SerialDeviceInfo
@@ -51,34 +51,37 @@ struct SerialDeviceInfo
 extern "C" {
 #endif
 
-  /// Get String describing SerialBusType
-  API const char* to_cstring(SerialBusType type);
-
   /// Start enumerating devices
   /// \returns Status/error code of system_category type
   /// \remarks Always call SerialEnum_Finish after this function to free resources allocated
-  API int SerialEnum_StartEnumeration();
+  DECLSPEC int SerialEnum_StartEnumeration();
 
   /// Gets info for next device
   /// \returns Status/error code of system_category type
-  API int SerialEnum_Next(SerialDeviceInfo* info);
+  DECLSPEC int SerialEnum_Next(SerialDeviceInfo* info);
 
   /// Finish enumeration, freeing all associated resources
-  API void SerialEnum_Finish();
+  DECLSPEC void SerialEnum_Finish();
+
+  /// Get String describing SerialBusType
+  DECLSPEC const char* to_cstring(SerialBusType type);
 
 #ifdef __cplusplus 
 }
 
-/// Stream extraction operator to print SerialBusType
-API std::ostream& operator<<(std::ostream& os, SerialBusType type) noexcept;
+/// Stream insertion operator to print SerialBusType
+DECLSPEC std::ostream& operator<<(std::ostream& os, SerialBusType type) noexcept;
 
-API std::ostream& operator<<(std::ostream& os, const SerialDeviceInfo& port) noexcept;
+/// Stream insertion operator to pretty-print serial device information
+DECLSPEC std::ostream& operator<<(std::ostream& os, const SerialDeviceInfo& port) noexcept;
 
 inline std::string to_string(SerialBusType type) noexcept
 {
   return std::string(to_cstring(type));
 }
 #endif
+
+#undef DECLSPEC
 
 #ifdef __cplusplus
 
@@ -149,6 +152,7 @@ namespace Serial
     }
   };
 
+  /// Convenience enumerator object
   static constexpr PortInfo ports;
 }
 

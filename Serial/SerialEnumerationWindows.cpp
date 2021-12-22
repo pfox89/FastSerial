@@ -1,5 +1,4 @@
-﻿
-#define API __declspec(dllexport)
+﻿#define API __declspec(dllexport)
 #include "SerialEnumeration.h"
 #undef API
 
@@ -11,8 +10,13 @@
 
 struct EnumData
 {
+  HANDLE heap() const noexcept { return _hHeap; }
+
   EnumData() noexcept = default;
 
+  /// \brief Initialize enumeration. This function must be called after constructor or deinit() before calling any other functions
+  /// \param hHeap Heap to use for allocating memory
+  /// \return system_error code
   int32_t init(HANDLE hHeap) noexcept
   {
     _hHeap = hHeap;
@@ -26,23 +30,19 @@ struct EnumData
       if (_deviceInterfaceList == nullptr)
       {
         _deviceInterfaceList = reinterpret_cast<PZZWSTR>(HeapAlloc(_hHeap, HEAP_ZERO_MEMORY, _listSize * sizeof(WCHAR)));
-       
+        if (_deviceInterfaceList == nullptr)
+        {
+          return ERROR_NOT_ENOUGH_MEMORY;
+        }
       }
       else
       {
         LPVOID new_mem = HeapReAlloc(_hHeap, HEAP_ZERO_MEMORY, _deviceInterfaceList, _listSize * sizeof(WCHAR));
-        if (new_mem == 0)
+        if (new_mem == nullptr)
         {
-          HeapFree(_hHeap, 0, _deviceInterfaceList);
-          _deviceInterfaceList = nullptr;
+          return ERROR_NOT_ENOUGH_MEMORY;
         }
         _deviceInterfaceList = reinterpret_cast<PZZWSTR>(new_mem);
-      }
-
-      if (_deviceInterfaceList == nullptr)
-      {
-        cr = CR_OUT_OF_MEMORY;
-        break;
       }
 
       cr = CM_Get_Device_Interface_ListW(const_cast<LPGUID>(&GUID_DEVINTERFACE_COMPORT),
@@ -60,23 +60,23 @@ struct EnumData
     {
       _wbuf_size = 256;
       _wbuf = static_cast<PZZWSTR>(HeapAlloc(_hHeap, HEAP_ZERO_MEMORY, _wbuf_size));
-      if (_wbuf == nullptr) cr = CR_OUT_OF_MEMORY;
+      if (_wbuf == nullptr) return ERROR_NOT_ENOUGH_MEMORY;
     }
     if (_str_buf == nullptr)
     {
       _str_buf_size = 256;
       _str_buf_pos = 0;
       _str_buf = static_cast<LPSTR>(HeapAlloc(_hHeap, HEAP_ZERO_MEMORY, _str_buf_size));
-      if (_str_buf == nullptr) cr = CR_OUT_OF_MEMORY;
+      if (_str_buf == nullptr) return ERROR_NOT_ENOUGH_MEMORY;
     }
 
     if (cr != CR_SUCCESS) return CM_MapCrToWin32Err(cr, ERROR_NOT_SUPPORTED);
     return ERROR_SUCCESS;
   }
 
+  /// \brief Release resources held by this object
   void deinit() noexcept
   {
-
     if (_deviceInterfaceList != nullptr)
     {
       HeapFree(_hHeap, 0, _deviceInterfaceList);
@@ -94,15 +94,19 @@ struct EnumData
     }
   }
 
+  /// \brief Destructor releases resources
   ~EnumData() noexcept
   {
     deinit();
   }
 
+  /// \brief Get info for next device in list
+  /// \param info reference to struct to store info strings
+  /// \return system_error code, or -1 if there are no further devices
   int32_t next(SerialDeviceInfo& info) noexcept
   {
     _currentInterfaceSize = static_cast<DWORD>(wcsnlen_s(_currentInterface, _listSize));
-    if (_currentInterfaceSize == 0) return ERROR_NO_MORE_ITEMS;
+    if (_currentInterfaceSize == 0) return -1;
 
     _currentDeviceIdLen = sizeof(_currentDeviceId);
     DEVPROPTYPE property_type;
@@ -230,7 +234,13 @@ private:
   ULONG   _str_buf_pos;
   ULONG   _str_buf_size;
 
-
+  /// \brief Get physical path of device
+  /// \param[in] device       Device instance to get path for
+  /// \param[in] rootstr      String to search to find root bus for device (e.g. USBROOT)
+  /// \param[in] rootstr_size Size of \p rootstr
+  /// \param[in] hubstr       String to find controller/hub/switch for bus (e.g. USB)
+  /// \param[in] hubstr_size  Size of \p hubstr
+  /// \return Pointer to null-terminated string with path
   const char* get_path(DEVINST device, const wchar_t* rootstr, size_t rootstr_size, const wchar_t* hubstr, size_t hubstr_size) noexcept
   {
     CONFIGRET cr = get_reg_property(device, CM_DRP_LOCATION_PATHS);
@@ -283,6 +293,8 @@ private:
     return nullptr;
   }
 
+  /// \brief Get bus type of currently selected device
+  /// \return Bus type enumeration
   SerialBusType getBusType() noexcept
   {
     if (wcsncmp(_currentDeviceId, L"USB", 3) == 0)
@@ -292,9 +304,9 @@ private:
     else return SerialBusType::BUS_UNKNOWN;
   }
 
-  /// @brief Reserve space in internal wide-character buffer used to translate from Windows UCS2 APIs. This does not preserve contents for this temporary buffer
-  /// @param size Desired size of buffer, in bytes, including null terminator
-  /// @return true if successful, false if failed
+  /// \brief Reserve space in internal wide-character buffer used to translate from Windows UCS2 APIs. This does not preserve contents for this temporary buffer
+  /// \param[in] size Desired size of buffer, in bytes, including null terminator
+  /// \return true if successful, false if failed
   bool resizebuf(DWORD size) noexcept
   {
     if (size > _wbuf_size)
@@ -322,9 +334,9 @@ private:
     return _str_buf_size - _str_buf_pos;
   }
 
-  /// @brief Reserve space in output string pool
-  /// @param amount Amount of space required
-  /// @return true if successful, false if allocation fails
+  /// \brief Reserve space in output string pool
+  /// \param amount Amount of space required
+  /// \return true if successful, false if allocation fails
   bool strbuf_reserve(size_t amount) noexcept
   {
     auto remain = _str_buf_size - _str_buf_pos;
@@ -344,9 +356,9 @@ private:
     return false;
   }
 
-  /// @brief Copy internal wide string buffer to string buffer and return pointer
-  /// @param str Destination string
-  /// @return WIN32 error code
+  /// \brief Copy internal wide string buffer to string buffer and return pointer
+  /// \param str Destination string
+  /// \return WIN32 error code
   const char* copybuf(const wchar_t* from, ULONG len) noexcept
   {
     int err = 0;
@@ -364,9 +376,9 @@ private:
     else return nullptr;
   }
 
-  /// @brief Get Device ID from instance
-  /// @param deviceInst Instance to get ID for
-  /// @return CONFIGRET status code
+  /// \brief Get Device ID from instance
+  /// \param deviceInst Instance to get ID for
+  /// \return CONFIGRET status code
   CONFIGRET get_device_id(DWORD deviceInst) noexcept
   {
     CONFIGRET ret = CM_Get_Device_ID_Size(&_currentDeviceIdLen, deviceInst, 0);
@@ -374,11 +386,11 @@ private:
     return CM_Get_Device_IDW(deviceInst, _currentDeviceId, _currentDeviceIdLen + 1, 0);
   }
 
-  /// @brief Get registry propery from device instance
-  /// @param device Device instance to get property for
-  /// @param propertyId ID number of property to get, CM_DRP_XXX defined in cfgmgr32.h
-  /// @param str String to copy parameter to, or nullptr
-  /// @return CONFIGRET status code
+  /// \brief Get registry propery from device instance
+  /// \param device Device instance to get property for
+  /// \param propertyId ID number of property to get, CM_DRP_XXX defined in cfgmgr32.h
+  /// \param str String to copy parameter to, or nullptr
+  /// \return CONFIGRET status code
   CONFIGRET get_reg_property(DEVINST device, ULONG propertyId) noexcept
   {
     DWORD size = _wbuf_size;
@@ -392,10 +404,10 @@ private:
     return cr;
   }
 
-  /// @brief Get custom registry value for device (REG_SZ/string)
-  /// @param name Name of registry value, null terminated wide string
-  /// @param str Destination to copy value to
-  /// @return CONFIGRET status code
+  /// \brief Get custom registry value for device (REG_SZ/string)
+  /// \param name Name of registry value, null terminated wide string
+  /// \param str Destination to copy value to
+  /// \return CONFIGRET status code
   CONFIGRET get_custom_device_property(const wchar_t* name) noexcept
   {
     DWORD size = _wbuf_size;
@@ -429,57 +441,56 @@ private:
   }
 };
 
+/// Manages pointer to enumeration object to minimize memory consumption when not in use
 struct EnumDataPtr
 {
   EnumData* ptr;
-  HANDLE hHeap;
 
   EnumDataPtr() noexcept = default;
   EnumDataPtr(EnumDataPtr& other) noexcept = delete;
 
-  CONFIGRET init() noexcept
+  /// \brief Allocate memory and initialize enumeration
+  /// \return system_error code
+  int init() noexcept
   {
     reset();
-    hHeap = GetProcessHeap();
+    HANDLE hHeap = GetProcessHeap();
     ptr = reinterpret_cast<EnumData*>(HeapAlloc(hHeap, 0, sizeof(EnumData)));
 
-    CONFIGRET cr;
+    int err;
     if (ptr == nullptr)
     {
-      cr = CR_OUT_OF_MEMORY;
+      err = ERROR_NOT_ENOUGH_MEMORY;
     }
     else
     {
       // Placement new to initialize object
       ptr = new (ptr) EnumData();
-      cr = ptr->init(hHeap);
+      err = ptr->init(hHeap);
+
+      // If we ran out of memory, free all resources
+      if (err == ERROR_NOT_ENOUGH_MEMORY) reset();
     }
-    return cr;
+    return err;
   }
 
+  /// \brief Deinitialize and free resources
   void reset() noexcept
   {
     if (ptr != nullptr)
     {
+      HANDLE heap = ptr->heap();
+      // Call destructor to free managed resources
       ptr->~EnumData();
-      HeapFree(hHeap, 0, ptr);
+      HeapFree(heap, 0, ptr);
       ptr = nullptr;
     }
   }
 
+  /// Destructor deinitializes all resources
   ~EnumDataPtr() noexcept
   {
     reset();
-  }
-
-  EnumData* operator->() noexcept
-  {
-    return ptr;
-  }
-
-  bool operator!() const noexcept
-  {
-    return ptr == nullptr;
   }
 };
 
@@ -496,7 +507,7 @@ extern "C"
   __declspec(dllexport) int SerialEnum_Next(SerialDeviceInfo* info)
   {
     if (s_data.ptr == nullptr || info == nullptr) return ERROR_INVALID_HANDLE;
-    return s_data->next(*info);
+    return s_data.ptr->next(*info);
   }
 
   __declspec(dllexport) void SerialEnum_Finish()
