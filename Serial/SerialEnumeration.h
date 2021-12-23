@@ -25,9 +25,28 @@ enum SerialBusType
   BUS_ANY      = BUS_USB | BUS_PCI | BUS_PNP | BUS_PLATFORM
 };
 
+enum LocationType
+{
+  NONE,
+  PCI_ROOT,
+  PCI_SLOT,
+  PNP_ROOT,
+  PNP_SLOT,
+  USB_ROOT,
+  USB_PORT
+};
+
+struct SerialDevicePathNode
+{
+  const char*    _path;
+  LocationType   type;
+  unsigned short number;
+};
+
 /// Information about device
 struct SerialDeviceInfo
 {
+
   /// Logical device path (e.g. interface)
   const char* lpath;
   /// Physical device path
@@ -44,6 +63,7 @@ struct SerialDeviceInfo
   unsigned short pid;
   /// Type of bus device is connected to
   SerialBusType type;
+
 };
 
 #ifdef __cplusplus 
@@ -67,6 +87,8 @@ extern "C" {
 
   /// Finish enumeration, freeing all associated resources
   DECLSPEC void SerialEnum_Finish();
+
+  DECLSPEC int SerialEnum_PathTokNext(SerialDevicePathNode* path);
 
   /// Get String describing SerialBusType
   DECLSPEC const char* to_cstring(SerialBusType type);
@@ -93,6 +115,41 @@ inline std::string to_string(SerialBusType type) noexcept
 
 namespace Serial
 {
+
+
+#ifdef __cplusplus
+  struct Path
+  {
+    SerialDevicePathNode node;
+
+    Path(const SerialDeviceInfo& info)
+      : node{ info.path, LocationType::NONE, 0}
+    {}
+
+    struct iterator
+    {
+      Path& path;
+
+      iterator& operator++() noexcept
+      {
+        SerialEnum_PathTokNext(&path.node);
+        return *this;
+      }
+     
+      const SerialDevicePathNode& operator*() const noexcept { return path.node; }
+      const SerialDevicePathNode* operator->() const noexcept { return &path.node; }
+
+      bool operator!=(iterator&)
+      {
+        return path.node._path != nullptr;
+      }
+    };
+
+    iterator begin() noexcept { return ++iterator{ *this }; }
+    iterator end() noexcept { return iterator{ *this }; }
+  };
+#endif
+
   /// Iterator to iterate over ports enumerator
   struct PortIter
   {

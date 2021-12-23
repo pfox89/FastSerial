@@ -35,15 +35,51 @@ EXPORTING std::ostream& operator<<(std::ostream& os, SerialBusType type) noexcep
   return os << to_cstring(type);
 }
 
+std::ostream& operator<<(std::ostream& os, const SerialDevicePathNode& node) noexcept
+{
+  switch (node.type)
+  {
+  case LocationType::PCI_ROOT:
+    os << "PCI";
+    break;
+  case LocationType::PCI_SLOT:
+    os << "Slot";
+    break;
+  case LocationType::USB_ROOT:
+    os << "USB";
+    break;
+  case LocationType::USB_PORT:
+    os << "Port";
+    break;
+  default:
+    break;
+  }
+  return os << ' ' << std::setbase(std::ios::hex) << node.number;
+}
 EXPORTING std::ostream& operator<<(std::ostream& os, const SerialDeviceInfo& port) noexcept
 {
   static constexpr std::streamsize width = 16;
   os.setf(std::ios::left);
   if(port.lpath == nullptr) return os << "Invalid device\n";
   os << port.lpath << '\n';
-  if(port.path != nullptr)
-     os << std::setw(width) << "  Path:" << port.path << '\n';
-  
+  if (port.path != nullptr)
+  {
+    os << std::setw(width) << "  Path:";
+
+    bool next = false;
+    for (auto& node : Serial::Path(port))
+    {
+      if (next) {
+        os << ", ";
+      }
+      else
+        next = true;
+
+      os << node;
+    }
+
+    os << '\n';
+  }
   os << std::setw(width) << "  Type:" << port.type << '\n';
   if(port.manufacturer != nullptr)
     os << std::setw(width) << "  Manufacturer:" << port.manufacturer << '\n';
@@ -52,6 +88,6 @@ EXPORTING std::ostream& operator<<(std::ostream& os, const SerialDeviceInfo& por
   if(port.description != nullptr)
     os << std::setw(width) << "  Description:" << port.description << '\n';
 
-  os << std::setw(width) << "  VID:" << port.vid << '\n'
+  return os << std::setw(width) << "  VID:" << port.vid << '\n'
      << std::setw(width) << "  PID:" << port.pid << '\n';
 }

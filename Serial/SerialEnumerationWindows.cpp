@@ -1,12 +1,76 @@
-﻿#define API __declspec(dllexport)
-#include "SerialEnumeration.h"
-#undef API
+﻿#include <memory>
 
 #include <comdef.h>
 #include <initguid.h> // include before devpkey
 #include <Devpkey.h>
 
 #include <Cfgmgr32.h>
+
+
+#define API __declspec(dllexport)
+#include "SerialEnumeration.h"
+#undef API
+
+template<class T>
+struct process_heap_deleter {
+  void operator()(T* ptr) { HeapFree(GetProcessHeap(), 0, ptr); };
+};
+
+template<typename T>
+using process_heap_ptr = std::unique_ptr <T, process_heap_deleter<T>>;
+
+#pragma warning( push )
+#pragma warning( disable : 4200 )
+template<class char_type=char>
+struct inline_str
+{
+  unsigned short capacity;
+  unsigned short size;
+  char_type data[];
+};
+#pragma warning( pop )
+
+template<class char_type=char>
+static process_heap_ptr<inline_str<char_type>> make_inline_str(size_t size) noexcept
+{
+  using str_type = inline_str<char_type>;
+  if (size <= USHRT_MAX)
+  {
+    void* mem = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, size + offsetof(str_type, data));
+    if (mem != nullptr)
+    {
+      str_type* p = reinterpret_cast<str_type*>(mem);
+      p->capacity = static_cast<unsigned short>(size);
+      p->size = 0;
+      return process_heap_ptr<str_type>(p);
+    }
+  }
+  return process_heap_ptr<str_type>();
+}
+
+template<class char_type=char>
+static bool resize_inline_str(process_heap_ptr<inline_str<char_type>>& str, size_t size) noexcept
+{
+  using str_type = inline_str<char_type>;
+  unsigned short oldsize = str->size;
+  if (size <= USHRT_MAX)
+  {
+    void* mem = HeapReAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, str.get(), size + offsetof(str_type, data));
+    if (mem != nullptr)
+    {
+      str_type* p = reinterpret_cast<str_type*> (mem);
+      p->capacity = static_cast<unsigned short>(size);
+      p->size = oldsize;
+      str.release();
+      str = process_heap_ptr<inline_str<char_type>>(p);
+      return true;
+    }
+  }
+  return false;
+}
+
+using string_buffer_ptr = process_heap_ptr<inline_str<>>;
+using wstring_buffer_ptr = process_heap_ptr<inline_str<wchar_t>>;
 
 struct EnumData
 {
@@ -17,87 +81,42 @@ struct EnumData
   /// \brief Initialize enumeration. This function must be called after constructor or deinit() before calling any other functions
   /// \param hHeap Heap to use for allocating memory
   /// \return system_error code
-  int32_t init(HANDLE hHeap) noexcept
+  int32_t init(HANDLE hHeap, unsigned int typeMask) noexcept
   {
     _hHeap = hHeap;
+    _typeMask = typeMask;
 
     CONFIGRET cr;
     do {
-      cr = CM_Get_Device_Interface_List_SizeW(&_listSize, const_cast<LPGUID>(&GUID_DEVINTERFACE_COMPORT), NULL, CM_GET_DEVICE_INTERFACE_LIST_PRESENT);
+      ULONG list_size;
+      cr = CM_Get_Device_Interface_List_SizeW(&list_size, const_cast<LPGUID>(&GUID_DEVINTERFACE_COMPORT), NULL, CM_GET_DEVICE_INTERFACE_LIST_PRESENT);
    
       if (cr != CR_SUCCESS) break;
 
-      if (_deviceInterfaceList == nullptr)
+      _deviceInterfaceList.reset();
+      _deviceInterfaceList = make_inline_str<wchar_t>(list_size * sizeof(WCHAR));
+      if (false == _deviceInterfaceList)
       {
-        _deviceInterfaceList = reinterpret_cast<PZZWSTR>(HeapAlloc(_hHeap, HEAP_ZERO_MEMORY, _listSize * sizeof(WCHAR)));
-        if (_deviceInterfaceList == nullptr)
-        {
-          return ERROR_NOT_ENOUGH_MEMORY;
-        }
-      }
-      else
-      {
-        LPVOID new_mem = HeapReAlloc(_hHeap, HEAP_ZERO_MEMORY, _deviceInterfaceList, _listSize * sizeof(WCHAR));
-        if (new_mem == nullptr)
-        {
-          return ERROR_NOT_ENOUGH_MEMORY;
-        }
-        _deviceInterfaceList = reinterpret_cast<PZZWSTR>(new_mem);
+        return ERROR_NOT_ENOUGH_MEMORY;
       }
 
       cr = CM_Get_Device_Interface_ListW(const_cast<LPGUID>(&GUID_DEVINTERFACE_COMPORT),
         NULL,
-        _deviceInterfaceList,
-        static_cast<ULONG>(_listSize),
+        _deviceInterfaceList->data,
+        list_size,
         CM_GET_DEVICE_INTERFACE_LIST_PRESENT);
 
+      _deviceInterfaceList->size = static_cast<unsigned short>(list_size);
     } while (cr == CR_BUFFER_SMALL);
 
-    _currentInterface = _deviceInterfaceList;
+    _currentInterface = _deviceInterfaceList->data;
 
     // Preallocate some memory for buffers
-    if (_wbuf == nullptr)
-    {
-      _wbuf_size = 256;
-      _wbuf = static_cast<PZZWSTR>(HeapAlloc(_hHeap, HEAP_ZERO_MEMORY, _wbuf_size));
-      if (_wbuf == nullptr) return ERROR_NOT_ENOUGH_MEMORY;
-    }
-    if (_str_buf == nullptr)
-    {
-      _str_buf_size = 256;
-      _str_buf_pos = 0;
-      _str_buf = static_cast<LPSTR>(HeapAlloc(_hHeap, HEAP_ZERO_MEMORY, _str_buf_size));
-      if (_str_buf == nullptr) return ERROR_NOT_ENOUGH_MEMORY;
-    }
+    _wbuf = make_inline_str<wchar_t>(500);
+    _strbuf = make_inline_str(500);
 
     if (cr != CR_SUCCESS) return CM_MapCrToWin32Err(cr, ERROR_NOT_SUPPORTED);
     return ERROR_SUCCESS;
-  }
-
-  /// \brief Release resources held by this object
-  void deinit() noexcept
-  {
-    if (_deviceInterfaceList != nullptr)
-    {
-      HeapFree(_hHeap, 0, _deviceInterfaceList);
-      _deviceInterfaceList = nullptr;
-    }
-    if (_wbuf != nullptr)
-    {
-      HeapFree(_hHeap, 0, _wbuf);
-      _wbuf = nullptr;
-    }
-    if (_str_buf != nullptr)
-    {
-      HeapFree(_hHeap, 0, _str_buf);
-      _str_buf = nullptr;
-    }
-  }
-
-  /// \brief Destructor releases resources
-  ~EnumData() noexcept
-  {
-    deinit();
   }
 
   /// \brief Get info for next device in list
@@ -105,120 +124,137 @@ struct EnumData
   /// \return system_error code, or -1 if there are no further devices
   int32_t next(SerialDeviceInfo& info) noexcept
   {
-    _currentInterfaceSize = static_cast<DWORD>(wcsnlen_s(_currentInterface, _listSize));
-    if (_currentInterfaceSize == 0) return -1;
+    do {
+      _currentInterfaceSize = static_cast<DWORD>(wcsnlen_s(_currentInterface, _deviceInterfaceList->size));
+      if (_currentInterfaceSize == 0) return -1;
 
-    _currentDeviceIdLen = sizeof(_currentDeviceId);
-    DEVPROPTYPE property_type;
-    CONFIGRET cr
-      = CM_Get_Device_Interface_PropertyW(_currentInterface,
-        &DEVPKEY_Device_InstanceId,
-        &property_type,
-        (PBYTE)_currentDeviceId,
-        &_currentDeviceIdLen,
-        0);
+      _currentDeviceIdLen = sizeof(_currentDeviceId);
+      DEVPROPTYPE property_type;
+      CONFIGRET cr
+        = CM_Get_Device_Interface_PropertyW(_currentInterface,
+          &DEVPKEY_Device_InstanceId,
+          &property_type,
+          (PBYTE)_currentDeviceId,
+          &_currentDeviceIdLen,
+          0);
 
-    if (cr == CR_SUCCESS)
-    {
-      if (property_type != DEVPROP_TYPE_STRING) return ERROR_DATATYPE_MISMATCH;
-
-      cr = CM_Locate_DevNodeW(&_device, _currentDeviceId, CM_LOCATE_DEVNODE_NORMAL);
-    }
-
-    if (cr != CR_SUCCESS)
-    {
-      info = { 0 };
-      return CM_MapCrToWin32Err(cr, ERROR_NOT_SUPPORTED);
-    }
-
-    info.lpath = copybuf(_currentInterface, _currentInterfaceSize);
-
-    auto nextOffset = _currentInterfaceSize + 1;
-    _currentInterface = _currentInterface + nextOffset;
-    _listSize -= nextOffset;
-
-    DWORD dwSize = 0;
-    info.vid = 0;
-    info.pid = 0;
-    info.type = SerialBusType::BUS_UNKNOWN;
-
-    DEVINST parent;
-
-
-    cr = get_custom_device_property(L"PortName");
-    if(cr == CR_SUCCESS) info.name = copybuf(_wbuf, _wbuf_length);
-    
-    cr = get_reg_property(_device, CM_DRP_MFG);
-    if (cr == CR_SUCCESS) info.manufacturer = copybuf(_wbuf, _wbuf_length);
-
-    cr = get_reg_property(_device, CM_DRP_FRIENDLYNAME);
-    if (cr == CR_SUCCESS) info.description = copybuf(_wbuf, _wbuf_length);
-
-    info.type = getBusType();
-
-    // If this isn't on a PCI or USB root, it may be a virtual device referencing a base physical device, so find its parent id
-    if (info.type == SerialBusType::BUS_UNKNOWN)
-    {
-      cr = CM_Get_Parent(&parent, _device, 0);
       if (cr == CR_SUCCESS)
       {
-        cr = get_device_id(parent);
-        info.type = getBusType();
+        if (property_type != DEVPROP_TYPE_STRING) return ERROR_DATATYPE_MISMATCH;
+
+        cr = CM_Locate_DevNodeW(&_device, _currentDeviceId, CM_LOCATE_DEVNODE_NORMAL);
       }
-    }
-    else
-    {
-      parent = _device;
-    }
 
-    if (info.type == SerialBusType::BUS_USB)
-    {
-      const wchar_t* pos = wcsstr(&_currentDeviceId[3], L"VID_");
-      if (pos != nullptr)
+      if (cr != CR_SUCCESS)
       {
-        wchar_t* next;
-        info.vid = static_cast<uint16_t>(wcstoul(pos + 4, &next, 10));
-        pos = next;
+        info = { 0 };
+        return CM_MapCrToWin32Err(cr, ERROR_NOT_SUPPORTED);
+      }
 
-        pos = wcsstr(pos, L"PID_");
-        if (pos != nullptr)
+      info.lpath = copybuf(_currentInterface, _currentInterfaceSize);
+
+      auto nextOffset = static_cast<unsigned short>(_currentInterfaceSize + 1);
+      _currentInterface = _currentInterface + nextOffset;
+      _deviceInterfaceList->size -= nextOffset;
+
+      DWORD dwSize = 0;
+      info.vid = 0;
+      info.pid = 0;
+      info.type = SerialBusType::BUS_UNKNOWN;
+
+      DEVINST parent;
+
+      info.type = getBusType();
+
+      // If this isn't on a PCI or USB root, it may be a virtual device referencing a base physical device, so find its parent id
+      if (info.type == SerialBusType::BUS_UNKNOWN)
+      {
+        cr = CM_Get_Parent(&parent, _device, 0);
+        if (cr == CR_SUCCESS)
         {
-          info.pid = static_cast<uint16_t>(wcstoul(pos + 4, &next, 10));
-          pos = next;
+          cr = get_device_id(parent);
+          info.type = getBusType();
         }
       }
-
-      info.path = get_path(parent, L"USBROOT", sizeof(L"USBROOT") / sizeof(wchar_t), L"USB", sizeof(L"USB") / sizeof(wchar_t));
-    }
-    else if (info.type == SerialBusType::BUS_PCI)
-    {
-      info.type = SerialBusType::BUS_PCI;
-      const wchar_t* pos = wcsstr(&_currentDeviceId[3], L"VEN_");
-      if (pos != nullptr)
+      else
       {
-        wchar_t* next;
-        info.vid = static_cast<uint16_t>(wcstoul(pos + 4, &next, 10));
-        pos = next;
-
-        pos = wcsstr(pos, L"DEV_");
-        if (pos != nullptr)
-        {
-          info.pid = static_cast<uint16_t>(wcstoul(pos + 4, &next, 16));
-          pos = next;
-        }
+        parent = _device;
       }
 
-      info.path = get_path(parent, L"PCIROOT", sizeof(L"PCIROOT") / sizeof(wchar_t), L"PCI", sizeof(L"PCI") / sizeof(wchar_t));
-    }
+      if (info.type == SerialBusType::BUS_USB)
+      {
+        if(0 == (_typeMask & static_cast<unsigned>(SerialBusType::BUS_USB)))
+          continue;
 
-    return CM_MapCrToWin32Err(cr, ERROR_NOT_SUPPORTED);
+        const wchar_t* pos = wcsstr(&_currentDeviceId[3], L"VID_");
+        if (pos != nullptr)
+        {
+          wchar_t* next;
+          info.vid = static_cast<uint16_t>(wcstoul(pos + 4, &next, 10));
+          pos = next;
+
+          pos = wcsstr(pos, L"PID_");
+          if (pos != nullptr)
+          {
+            info.pid = static_cast<uint16_t>(wcstoul(pos + 4, &next, 10));
+            pos = next;
+          }
+        }
+        //info.path = get_path(parent, L"USBROOT", sizeof(L"USBROOT") / sizeof(wchar_t), L"USB", sizeof(L"USB") / sizeof(wchar_t));
+  
+      }
+      else if (info.type == SerialBusType::BUS_PCI)
+      {
+
+        if (0 == (_typeMask & static_cast<unsigned>(SerialBusType::BUS_PCI)))
+          continue;
+
+        const wchar_t* pos = wcsstr(&_currentDeviceId[3], L"VEN_");
+        if (pos != nullptr)
+        {
+          wchar_t* next;
+          info.vid = static_cast<uint16_t>(wcstoul(pos + 4, &next, 10));
+          pos = next;
+
+          pos = wcsstr(pos, L"DEV_");
+          if (pos != nullptr)
+          {
+            info.pid = static_cast<uint16_t>(wcstoul(pos + 4, &next, 16));
+            pos = next;
+          }
+        }
+
+        //info.path = get_path(parent, L"PCIROOT", sizeof(L"PCIROOT") / sizeof(wchar_t), L"PCI", sizeof(L"PCI") / sizeof(wchar_t));
+      }
+      else
+      {
+        // Unknown type, only include on BUS_ANY
+        if (_typeMask != static_cast<unsigned>(SerialBusType::BUS_ANY))
+          continue;
+      }
+
+      cr = get_custom_device_property(L"PortName");
+      if (cr == CR_SUCCESS) info.name = copybuf(_wbuf->data, _wbuf->size);
+
+      cr = get_reg_property(_device, CM_DRP_MFG);
+      if (cr == CR_SUCCESS) info.manufacturer = copybuf(_wbuf->data, _wbuf->size);
+
+      cr = get_reg_property(_device, CM_DRP_FRIENDLYNAME);
+      if (cr == CR_SUCCESS) info.description = copybuf(_wbuf->data, _wbuf->size);
+
+      cr = get_reg_property(parent, CM_DRP_LOCATION_PATHS);
+      info.path = copybuf(_wbuf->data, _wbuf->size);
+
+      return CM_MapCrToWin32Err(cr, ERROR_NOT_SUPPORTED);
+    } while (_currentInterfaceSize > 0);
+
+    return -1;
   }
 
 private:
 
   HANDLE   _hHeap;
-  PZZWSTR  _deviceInterfaceList;
-  DWORD    _listSize;
+  unsigned _typeMask;
   PWSTR    _currentInterface;
   DWORD    _currentInterfaceSize;
   DEVINST  _device;
@@ -226,72 +262,9 @@ private:
   WCHAR    _currentDeviceId[MAX_DEVICE_ID_LEN];
   ULONG    _currentDeviceIdLen;
 
-  PZZWSTR _wbuf;
-  ULONG   _wbuf_size;
-  ULONG   _wbuf_length;
-
-  LPSTR   _str_buf;
-  ULONG   _str_buf_pos;
-  ULONG   _str_buf_size;
-
-  /// \brief Get physical path of device
-  /// \param[in] device       Device instance to get path for
-  /// \param[in] rootstr      String to search to find root bus for device (e.g. USBROOT)
-  /// \param[in] rootstr_size Size of \p rootstr
-  /// \param[in] hubstr       String to find controller/hub/switch for bus (e.g. USB)
-  /// \param[in] hubstr_size  Size of \p hubstr
-  /// \return Pointer to null-terminated string with path
-  const char* get_path(DEVINST device, const wchar_t* rootstr, size_t rootstr_size, const wchar_t* hubstr, size_t hubstr_size) noexcept
-  {
-    CONFIGRET cr = get_reg_property(device, CM_DRP_LOCATION_PATHS);
-    if (cr == CR_SUCCESS && _wbuf_length > 0)
-    {
-      // Multiple paths may be returned separated by null, we only use the first, so look for null terminator
-      size_t len = wcsnlen_s(_wbuf, _wbuf_length);
-      const wchar_t* pos = wcsstr(_wbuf, rootstr);
-
-      if (pos != nullptr)
-      {
-        // Reserve plenty of space for this string
-        if (strbuf_reserve(len) == false) return nullptr;
-        char* out_begin = &_str_buf[_str_buf_pos];
-        char* out = out_begin;
-
-        uint16_t path_size = 0;
-        *out++ = static_cast<char>(hubstr[0]);
-        *out++ = static_cast<char>(hubstr[1]);
-        *out++ = static_cast<char>(hubstr[2]);
-        *out++ = '/';
-
-        pos += rootstr_size;
-
-        while (std::isdigit(*pos))
-        {
-          *out++ = static_cast<char>(*pos++);
-        }
-        while (pos != nullptr && *pos++ == ')' && *pos++ == '#')
-        {
-          pos = wcsstr(pos, hubstr);
-          if (pos != nullptr)
-          {
-            *out++ = '/';
-
-            pos += hubstr_size;
-            while (std::isdigit(*pos))
-            {
-              *out++ = static_cast<char>(*pos++);
-            }
-          }
-        }
-
-        // Ensure string is null-terminated
-        *out++ = '\0';
-        _str_buf_pos = static_cast<ULONG>(out - _str_buf);
-        return out_begin;
-      }
-    }
-    return nullptr;
-  }
+  wstring_buffer_ptr _deviceInterfaceList;
+  wstring_buffer_ptr _wbuf;
+  string_buffer_ptr _strbuf;
 
   /// \brief Get bus type of currently selected device
   /// \return Bus type enumeration
@@ -309,29 +282,21 @@ private:
   /// \return true if successful, false if failed
   bool resizebuf(DWORD size) noexcept
   {
-    if (size > _wbuf_size)
+    if (size > _wbuf->capacity)
     {
-      if (size > UINT16_MAX) size = UINT16_MAX;
-
-      if (_wbuf != nullptr) HeapFree(_hHeap, 0, _wbuf);
-      _wbuf = static_cast<PZZWSTR>(HeapAlloc(_hHeap, HEAP_ZERO_MEMORY, size));
-
-      if (_wbuf == nullptr) return false;
-      _wbuf_size = static_cast<uint16_t>(size);
-      _wbuf_length = static_cast<uint16_t>(size) / sizeof(wchar_t);
+      _wbuf.reset();
+      _wbuf = make_inline_str<wchar_t>(size);
+      if (false == _wbuf) return false;
+      _wbuf->size = static_cast<unsigned short>(size);
     }
     else
     {
-      _wbuf_length = static_cast<uint16_t>(size) / sizeof(wchar_t);
+      // Size includes null terminator
+      _wbuf->size = (static_cast<unsigned short>(size) / sizeof(wchar_t));
       // Ensure buffer is always null-terminated
-      _wbuf[_wbuf_length-1] = '\0';
+      _wbuf->data[_wbuf->size-1] = '\0';
     }
     return true;
-  }
-
-  int strbuf_remain() const noexcept
-  {
-    return _str_buf_size - _str_buf_pos;
   }
 
   /// \brief Reserve space in output string pool
@@ -339,21 +304,15 @@ private:
   /// \return true if successful, false if allocation fails
   bool strbuf_reserve(size_t amount) noexcept
   {
-    auto remain = _str_buf_size - _str_buf_pos;
+    size_t capacity = _strbuf->capacity;
+    size_t size = _strbuf->size;
+    size_t remain = capacity - size;
     if (amount < remain) return true;
 
-    auto newsize = (_str_buf_size * 3) / 2;
-    if (newsize - _str_buf_pos < amount) newsize += static_cast<ULONG>(amount);
+    auto newsize = (capacity * 3) / 2;
+    if (newsize - remain < amount) newsize += static_cast<ULONG>(amount);
    
-    LPVOID newbuf = HeapReAlloc(_hHeap, HEAP_ZERO_MEMORY, _str_buf, newsize);
-
-    if (newbuf != nullptr)
-    {
-      _str_buf = reinterpret_cast<LPSTR>(newbuf);
-      _str_buf_size = newsize;
-      return true;
-    }
-    return false;
+    return resize_inline_str(_strbuf, newsize);
   }
 
   /// \brief Copy internal wide string buffer to string buffer and return pointer
@@ -367,10 +326,12 @@ private:
     if (count == 0) return nullptr;
     if (strbuf_reserve(count) == false) return nullptr;
 
-    LPSTR begin = &_str_buf[_str_buf_pos];
+    auto pos = _strbuf->size;
+    LPSTR begin = &_strbuf->data[pos];
     if (WideCharToMultiByte(CP_UTF8, 0, from, len, begin, count, nullptr, nullptr))
     {
-      _str_buf_pos += (count + 1);
+      pos += (count + 1);
+      _strbuf->size = pos;
       return begin;
     }
     else return nullptr;
@@ -393,11 +354,11 @@ private:
   /// \return CONFIGRET status code
   CONFIGRET get_reg_property(DEVINST device, ULONG propertyId) noexcept
   {
-    DWORD size = _wbuf_size;
+    DWORD size = _wbuf->capacity;
     ULONG type;
     CONFIGRET cr;
     do {
-      cr = CM_Get_DevNode_Registry_PropertyW(device, propertyId, &type, _wbuf, &size, 0);
+      cr = CM_Get_DevNode_Registry_PropertyW(device, propertyId, &type, _wbuf->data, &size, 0);
       if (resizebuf(size) == false) return CR_OUT_OF_MEMORY;
     } while (cr == CR_BUFFER_SMALL);
 
@@ -410,7 +371,7 @@ private:
   /// \return CONFIGRET status code
   CONFIGRET get_custom_device_property(const wchar_t* name) noexcept
   {
-    DWORD size = _wbuf_size;
+    DWORD size = _wbuf->capacity;
     HKEY deviceKey;
     CONFIGRET cr = CM_Open_DevNode_Key(_device, KEY_QUERY_VALUE, 0, RegDisposition_OpenExisting, &deviceKey, CM_REGISTRY_HARDWARE);
     if (cr != CR_SUCCESS) return cr;
@@ -422,12 +383,14 @@ private:
         name,          // Value name to query
         RRF_RT_REG_SZ, // Type of value to receieve
         nullptr,       // We only expect a REG_SZ key, so we don't need it reported back
-        _wbuf,         // address of data buffer
+        _wbuf->data,   // address of data buffer
         &size          // address of data buffer size
       );
-      resizebuf(size);
+      if (false == resizebuf(size)) return CR_OUT_OF_MEMORY;
 
     } while (err == ERROR_MORE_DATA);
+
+    _wbuf->size = static_cast<unsigned short>(size);
 
     if (cr == CR_SUCCESS && err != ERROR_SUCCESS)
       cr = CR_REGISTRY_ERROR;
@@ -451,7 +414,7 @@ struct EnumDataPtr
 
   /// \brief Allocate memory and initialize enumeration
   /// \return system_error code
-  int init() noexcept
+  int init(unsigned int typeMask) noexcept
   {
     reset();
     HANDLE hHeap = GetProcessHeap();
@@ -466,7 +429,7 @@ struct EnumDataPtr
     {
       // Placement new to initialize object
       ptr = new (ptr) EnumData();
-      err = ptr->init(hHeap);
+      err = ptr->init(hHeap, typeMask);
 
       // If we ran out of memory, free all resources
       if (err == ERROR_NOT_ENOUGH_MEMORY) reset();
@@ -499,9 +462,9 @@ thread_local EnumDataPtr s_data;
 
 extern "C"
 {
-  __declspec(dllexport) int SerialEnum_StartEnumeration()
+  __declspec(dllexport) int SerialEnum_StartEnumeration(unsigned int typeMask)
   {
-    return s_data.init();
+    return s_data.init(typeMask);
   }
 
   __declspec(dllexport) int SerialEnum_Next(SerialDeviceInfo* info)
@@ -513,6 +476,61 @@ extern "C"
   __declspec(dllexport) void SerialEnum_Finish()
   {
     s_data.reset();
+  }
+ 
+  __declspec(dllexport) int SerialEnum_PathTokNext(SerialDevicePathNode* path)
+  {
+    if (path == nullptr || path->_path == nullptr)
+    {
+      return -1;
+    }
+    if (*path->_path == '\0')
+    {
+      path->_path = nullptr;
+      return -1;
+    }
+
+    const char* pos = path->_path;
+
+    const char* next = strchr(pos, '#');
+    if (next != nullptr) ++next;
+    else next = strchr(pos, '\0');
+
+    if (strncmp(pos, "PCI", 3) == 0)
+    {
+      if (strncmp(&pos[3], "ROOT(", 5) == 0)
+      {
+        pos += 8;
+        path->type = LocationType::PCI_ROOT;
+        path->number = static_cast<unsigned short>(strtoul(pos, nullptr, 16));
+      }
+      else
+      {
+        pos += 4;
+        path->type = LocationType::PCI_SLOT;
+
+        path->number = static_cast<unsigned short>(strtoul(pos, nullptr, 16) >> 8U);
+      }
+      path->_path = next;
+      return 0;
+    }
+    else if (strncmp(pos, "USB", 3) == 0)
+    {
+      if (strncmp(&pos[3], "ROOT(", 5) == 0)
+      {
+        pos += 8;
+        path->type = LocationType::USB_ROOT;
+      }
+      else
+      {
+        pos += 4;
+        path->type = LocationType::USB_PORT;
+      }
+      path->number = static_cast<unsigned short>(strtoul(pos, nullptr, 16));
+      path->_path = next;
+      return 0;
+    }
+    return -1;
   }
 }
 
