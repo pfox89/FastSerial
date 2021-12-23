@@ -17,11 +17,12 @@ enum class SerialBusType
 enum SerialBusType
 #endif
 {
-  BUS_UNKNOWN,
-  BUS_USB,
-  BUS_PCI,
-  BUS_ISA,
-  BUS_PLATFORM
+  BUS_UNKNOWN  = 0,
+  BUS_USB      = 0x1,
+  BUS_PCI      = 0x2,
+  BUS_PNP      = 0x4,
+  BUS_PLATFORM = 0x8,
+  BUS_ANY      = BUS_USB | BUS_PCI | BUS_PNP | BUS_PLATFORM
 };
 
 /// Information about device
@@ -56,10 +57,12 @@ extern "C" {
   /// Start enumerating devices
   /// \returns Status/error code of system_category type
   /// \remarks Always call SerialEnum_Finish after this function to free resources allocated
-  DECLSPEC int SerialEnum_StartEnumeration();
+  DECLSPEC int SerialEnum_StartEnumeration(unsigned int typeMask);
 
   /// Gets info for next device
+  /// \param[out] info Pointer to info struct to receive device info
   /// \returns Status/error code of system_category type
+  /// \remark Strings remain valid only until another SerialEnum function is called, so they should be copied
   DECLSPEC int SerialEnum_Next(SerialDeviceInfo* info);
 
   /// Finish enumeration, freeing all associated resources
@@ -77,6 +80,7 @@ DECLSPEC std::ostream& operator<<(std::ostream& os, SerialBusType type) noexcept
 /// Stream insertion operator to pretty-print serial device information
 DECLSPEC std::ostream& operator<<(std::ostream& os, const SerialDeviceInfo& port) noexcept;
 
+/// Convert SerialBusType to C++ string
 inline std::string to_string(SerialBusType type) noexcept
 {
   return std::string(to_cstring(type));
@@ -89,33 +93,38 @@ inline std::string to_string(SerialBusType type) noexcept
 
 namespace Serial
 {
+  /// Iterator to iterate over ports enumerator
   struct PortIter
   {
-    int32_t status;
-    SerialDeviceInfo info;
-
-    PortIter() noexcept
-      : status(SerialEnum_StartEnumeration()), info{}
+    //
+    PortIter(uint32_t typeMask) noexcept
+      : _status(SerialEnum_StartEnumeration(typeMask)), _info{}
     {
+      // Populate info immediately
       ++(*this);
     }
 
+    /// Passing an int constructs an dummy "end" iterator by setting status to invalid value
     PortIter(int) noexcept
-      : status(INT32_MAX), info{}
+      : _status(INT32_MAX), _info{}
     {}
 
+    /// Don't allow copying iterator, ownership must be retained
     PortIter(const PortIter&) = delete;
+
+    /// Move iterator takes ownership
     PortIter(PortIter&& other) noexcept
-      : status(other.status), info(other.info)
+      : _status(other._status), _info(other._info)
     {
-      other.status = INT32_MAX;
+      other._status = INT32_MAX;
     }
 
+    /// Incrementing iterator gets next device
     PortIter& operator++() noexcept
     {
-      if (status == 0)
+      if (_status == 0)
       {
-        status = SerialEnum_Next(&info);
+        _status = SerialEnum_Next(&_info);
       }
      
       return *this;
@@ -123,30 +132,38 @@ namespace Serial
 
     const SerialDeviceInfo& operator*() const noexcept
     {
-      return info;
+      return _info;
     }
+
     const SerialDeviceInfo* operator->() const noexcept
     {
-      return &info;
+      return &_info;
     }
 
     bool operator!=(const PortIter&) const noexcept
     {
-      return (status == 0);
+      return (_status == 0);
     }
 
+    /// Destructor frees resources
     ~PortIter() noexcept
     {
-      if (status != INT32_MAX)
+      if (_status != INT32_MAX)
         SerialEnum_Finish();
     }
+  private:  
+    int32_t          _status;
+    SerialDeviceInfo _info;
+
   };
 
+  /// Constexpr range template to allow enumerator to be used as a range
+  template<SerialBusType type>
   struct PortInfo
   {
     PortIter begin() const noexcept
     {
-      return PortIter();
+      return PortIter(static_cast<unsigned>(type));
     }
     PortIter end() const noexcept
     {
@@ -154,8 +171,31 @@ namespace Serial
     }
   };
 
-  /// Convenience enumerator object
-  static constexpr PortInfo ports;
+  /// \brief Enuemrator object for all ports
+  /// Use begin() and end() functions to get iterators to port range, 
+  /// or use in range-based for loop, e.g. `for(auto& port : ports)`
+  static constexpr PortInfo<SerialBusType::BUS_ANY> ports;
+
+  namespace usb
+  {
+    /// Enumerator range for USB ports
+    static constexpr PortInfo<SerialBusType::BUS_USB> ports;
+  }
+  namespace pci
+  {
+    /// Enumerator range for PCI ports
+    static constexpr PortInfo<SerialBusType::BUS_PCI> ports;
+  }
+  namespace pnp
+  {
+    /// Enumerator range for PNP/ISA ports
+    static constexpr PortInfo<SerialBusType::BUS_PNP> ports;
+  }
+  namespace platform
+  {
+    /// Enumerator range for Platform ports
+    static constexpr PortInfo<SerialBusType::BUS_PLATFORM> ports;
+  }
 }
 
 #endif

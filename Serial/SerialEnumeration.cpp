@@ -20,8 +20,8 @@ extern "C"
     return "USB";
   case SerialBusType::BUS_PCI:
     return "PCI";
-  case SerialBusType::BUS_ISA:
-    return "ISA";
+  case SerialBusType::BUS_PNP:
+    return "PNP";
   case SerialBusType::BUS_PLATFORM:
     return "Platform";
   default:
@@ -52,6 +52,6 @@ EXPORTING std::ostream& operator<<(std::ostream& os, const SerialDeviceInfo& por
   if(port.description != nullptr)
     os << std::setw(width) << "  Description:" << port.description << '\n';
 
-  os << std::setw(width) << "  VID: " << port.vid << '\n'
-     << std::setw(width) << "  PID: " << port.pid << '\n';
+  os << std::setw(width) << "  VID:" << port.vid << '\n'
+     << std::setw(width) << "  PID:" << port.pid << '\n';
 }
