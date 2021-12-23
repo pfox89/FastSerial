@@ -7,7 +7,7 @@
 #    define DECLSPEC __declspec(dllimport)
 #  endif
 #else // non windows
-#  define DECLSPEC
+#  define DECLSPEC [[gnu::visibility("default")]]
 #endif
 
 #ifdef __cplusplus 
@@ -19,7 +19,9 @@ enum SerialBusType
 {
   BUS_UNKNOWN,
   BUS_USB,
-  BUS_PCI
+  BUS_PCI,
+  BUS_ISA,
+  BUS_PLATFORM
 };
 
 /// Information about device

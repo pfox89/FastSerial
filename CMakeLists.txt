@@ -3,7 +3,7 @@
 #
 cmake_minimum_required (VERSION 3.8)
 
-project (SerialEnumeration)
+project (SerialPP)
 
 # Include sub-projects.
 add_subdirectory (Serial)

@@ -20,6 +20,10 @@ extern "C"
     return "USB";
   case SerialBusType::BUS_PCI:
     return "PCI";
+  case SerialBusType::BUS_ISA:
+    return "ISA";
+  case SerialBusType::BUS_PLATFORM:
+    return "Platform";
   default:
     return "";
   }
@@ -34,14 +38,20 @@ EXPORTING std::ostream& operator<<(std::ostream& os, SerialBusType type) noexcep
 EXPORTING std::ostream& operator<<(std::ostream& os, const SerialDeviceInfo& port) noexcept
 {
   static constexpr std::streamsize width = 16;
-
   os.setf(std::ios::left);
-  return os << port.lpath << '\n'
-    << std::setw(width) << "  Path:" << port.path << '\n'
-    << std::setw(width) << "  Type:" << port.type << '\n'
-    << std::setw(width) << "  Manufacturer:" << port.manufacturer << '\n'
-    << std::setw(width) << "  Name:" << port.name << '\n'
-    << std::setw(width) << "  Description:" << port.description << '\n'
-    << std::setw(width) << "  VID: " << port.vid << '\n'
-    << std::setw(width) << "  PID: " << port.pid << '\n';
+  if(port.lpath == nullptr) return os << "Invalid device\n";
+  os << port.lpath << '\n';
+  if(port.path != nullptr)
+     os << std::setw(width) << "  Path:" << port.path << '\n';
+  
+  os << std::setw(width) << "  Type:" << port.type << '\n';
+  if(port.manufacturer != nullptr)
+    os << std::setw(width) << "  Manufacturer:" << port.manufacturer << '\n';
+  if(port.name != nullptr)
+    os << std::setw(width) << "  Name:" << port.name << '\n';;
+  if(port.description != nullptr)
+    os << std::setw(width) << "  Description:" << port.description << '\n';
+
+  os << std::setw(width) << "  VID: " << port.vid << '\n'
+     << std::setw(width) << "  PID: " << port.pid << '\n';
 }
