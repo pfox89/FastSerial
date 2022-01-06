@@ -1,8 +1,10 @@
 ﻿#pragma once
 
 #if defined(_WIN32)
-#  if defined(EXPORTING_SERIAL)
+#  if defined(EXPORTING_SERIALENUM)
 #    define DECLSPEC __declspec(dllexport)
+#  elif defined(SERIAL_STATIC)
+#    define DECLSPEC
 #  else
 #    define DECLSPEC __declspec(dllimport)
 #  endif
@@ -24,8 +26,12 @@ enum SerialBusType
   BUS_PLATFORM = 0x8,
   BUS_ANY      = BUS_USB | BUS_PCI | BUS_PNP | BUS_PLATFORM
 };
-
+#ifdef __cplusplus 
+/// Possible types of bus this device can be connected to
+enum class LocationType
+#else
 enum LocationType
+#endif
 {
   NONE,
   PCI_ROOT,
@@ -36,9 +42,10 @@ enum LocationType
   USB_PORT
 };
 
+/// Node in serial device path to allow iterating over path
 struct SerialDevicePathNode
 {
-  const char*    _path;
+  const char*    path;
   LocationType   type;
   unsigned short number;
 };
@@ -46,7 +53,6 @@ struct SerialDevicePathNode
 /// Information about device
 struct SerialDeviceInfo
 {
-
   /// Logical device path (e.g. interface)
   const char* lpath;
   /// Physical device path
@@ -90,8 +96,18 @@ extern "C" {
 
   DECLSPEC int SerialEnum_PathTokNext(SerialDevicePathNode* path);
 
+  /// @brief Get null terminated string representing location type
+  DECLSPEC const char* SerialEnum_LocationType_to_cstring(LocationType type);
+
+  /// \brief Print device path to string
+  /// \param[in]  port   Port to print device path for
+  /// \param[out] buffer Destination to print string to
+  /// \param[in]  size   Size of buffer
+  /// \return Number of bytes printed 
+  DECLSPEC int SerialDevicePathNode_Path_print(const SerialDeviceInfo& port, char* buffer, int size);
+
   /// Get String describing SerialBusType
-  DECLSPEC const char* to_cstring(SerialBusType type);
+  DECLSPEC const char* SerialBusType_to_cstring(SerialBusType type);
 
 #ifdef __cplusplus 
 }
@@ -102,10 +118,19 @@ DECLSPEC std::ostream& operator<<(std::ostream& os, SerialBusType type) noexcept
 /// Stream insertion operator to pretty-print serial device information
 DECLSPEC std::ostream& operator<<(std::ostream& os, const SerialDeviceInfo& port) noexcept;
 
+/// Stream insertion operator to pretty-print serial device node
+DECLSPEC std::ostream& operator<<(std::ostream& os, const SerialDevicePathNode& node) noexcept;
+
+/// C++ overload to convert to SerialBusType to cstring
+static inline const char* to_cstring(SerialBusType type) noexcept
+{
+  return SerialBusType_to_cstring(type);
+}
+
 /// Convert SerialBusType to C++ string
 inline std::string to_string(SerialBusType type) noexcept
 {
-  return std::string(to_cstring(type));
+  return std::string(SerialBusType_to_cstring(type));
 }
 #endif
 
@@ -118,6 +143,7 @@ namespace Serial
 
 
 #ifdef __cplusplus
+  /// @brief Range of serial device path nodes to enable iterating over path
   struct Path
   {
     SerialDevicePathNode node;
@@ -141,7 +167,7 @@ namespace Serial
 
       bool operator!=(iterator&)
       {
-        return path.node._path != nullptr;
+        return path.node.path != nullptr;
       }
     };
 
@@ -153,7 +179,7 @@ namespace Serial
   /// Iterator to iterate over ports enumerator
   struct PortIter
   {
-    //
+    // Create iterator over ports using type mask
     PortIter(uint32_t typeMask) noexcept
       : _status(SerialEnum_StartEnumeration(typeMask)), _info{}
     {

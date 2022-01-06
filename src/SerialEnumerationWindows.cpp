@@ -6,10 +6,7 @@
 
 #include <Cfgmgr32.h>
 
-
-#define API __declspec(dllexport)
 #include "SerialEnumeration.h"
-#undef API
 
 template<class T>
 struct process_heap_deleter {
@@ -460,37 +457,43 @@ struct EnumDataPtr
 /// Thread local managed pointer to store state of queries
 thread_local EnumDataPtr s_data;
 
+#if defined(EXPORTING_SERIALENUM)
+#  define DECLSPEC __declspec(dllexport)
+#else
+#  define DECLSPEC
+#endif
+
 extern "C"
 {
-  __declspec(dllexport) int SerialEnum_StartEnumeration(unsigned int typeMask)
+  DECLSPEC int SerialEnum_StartEnumeration(unsigned int typeMask)
   {
     return s_data.init(typeMask);
   }
 
-  __declspec(dllexport) int SerialEnum_Next(SerialDeviceInfo* info)
+  DECLSPEC int SerialEnum_Next(SerialDeviceInfo* info)
   {
     if (s_data.ptr == nullptr || info == nullptr) return ERROR_INVALID_HANDLE;
     return s_data.ptr->next(*info);
   }
 
-  __declspec(dllexport) void SerialEnum_Finish()
+  DECLSPEC void SerialEnum_Finish()
   {
     s_data.reset();
   }
  
-  __declspec(dllexport) int SerialEnum_PathTokNext(SerialDevicePathNode* path)
+  DECLSPEC int SerialEnum_PathTokNext(SerialDevicePathNode* path)
   {
-    if (path == nullptr || path->_path == nullptr)
+    if (path == nullptr || path->path == nullptr)
     {
       return -1;
     }
-    if (*path->_path == '\0')
+    if (*path->path == '\0')
     {
-      path->_path = nullptr;
+      path->path = nullptr;
       return -1;
     }
 
-    const char* pos = path->_path;
+    const char* pos = path->path;
 
     const char* next = strchr(pos, '#');
     if (next != nullptr) ++next;
@@ -511,7 +514,7 @@ extern "C"
 
         path->number = static_cast<unsigned short>(strtoul(pos, nullptr, 16) >> 8U);
       }
-      path->_path = next;
+      path->path = next;
       return 0;
     }
     else if (strncmp(pos, "USB", 3) == 0)
@@ -527,7 +530,7 @@ extern "C"
         path->type = LocationType::USB_PORT;
       }
       path->number = static_cast<unsigned short>(strtoul(pos, nullptr, 16));
-      path->_path = next;
+      path->path = next;
       return 0;
     }
     return -1;

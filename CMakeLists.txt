@@ -3,7 +3,9 @@
 #
 cmake_minimum_required (VERSION 3.8)
 
-project (SerialPP)
+project (FastSerial)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 # Include sub-projects.
-add_subdirectory (Serial)
+add_subdirectory (src)
+add_subdirectory(Examples)
