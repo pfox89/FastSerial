@@ -108,22 +108,23 @@ DECLSPEC std::ostream& operator<<(std::ostream& os, const SerialDeviceInfo& port
   os.setf(std::ios::left);
   if(port.lpath == nullptr) return os << "Invalid device\n";
   os << port.lpath << '\n';
+
   if (port.path != nullptr)
   {
-    os << std::setw(width) << "  Path:";
-
     int size = 250;
     std::unique_ptr<char[]> path = std::make_unique<char[]>(size);
 
     int required = SerialDevicePathNode_Path_print(port, &path[0], size);
-    if (size > required)
+    if (size < required)
     {
       path = std::make_unique<char[]>(required);
       size = required;
       required = SerialDevicePathNode_Path_print(port, &path[0], size);
     }
+    if(required > 0)
+      os << std::setw(width) << "  Path:" << path.get() << '\n';
     
-    os << path.get() << '\n';
+   //os << port.path << '\n';
   }
 
   os << std::setw(width) << "  Type:" << port.type << '\n';

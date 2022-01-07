@@ -147,7 +147,6 @@ namespace Serial
   struct Path
   {
     SerialDevicePathNode node;
-
     Path(const SerialDeviceInfo& info)
       : node{ info.path, LocationType::NONE, 0}
     {}
@@ -155,10 +154,11 @@ namespace Serial
     struct iterator
     {
       Path& path;
+      int valid;
 
       iterator& operator++() noexcept
       {
-        SerialEnum_PathTokNext(&path.node);
+        valid = SerialEnum_PathTokNext(&path.node);
         return *this;
       }
      
@@ -167,12 +167,12 @@ namespace Serial
 
       bool operator!=(iterator&)
       {
-        return path.node.path != nullptr;
+        return valid == 0;
       }
     };
 
-    iterator begin() noexcept { return ++iterator{ *this }; }
-    iterator end() noexcept { return iterator{ *this }; }
+    iterator begin() noexcept { return ++iterator{ *this,0}; }
+    iterator end() noexcept { return iterator{ *this,0}; }
   };
 #endif
 

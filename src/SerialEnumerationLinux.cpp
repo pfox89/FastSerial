@@ -211,19 +211,102 @@ thread_local std::unique_ptr<UDevEnumeration> enum_ptr;
 
 extern "C"
 {
-  int SerialEnum_StartEnumeration(unsigned int typeMask)
-  {
-    enum_ptr = std::make_unique<UDevEnumeration>();
-    if(!enum_ptr) return static_cast<int>(std::errc::not_enough_memory);
-    return enum_ptr->init(typeMask);
-  }
+int SerialEnum_StartEnumeration(unsigned int typeMask)
+{
+  enum_ptr = std::make_unique<UDevEnumeration>();
+  if (!enum_ptr)
+    return static_cast<int>(std::errc::not_enough_memory);
+  return enum_ptr->init(typeMask);
+}
 
-  int SerialEnum_Next(SerialDeviceInfo* info)
+int SerialEnum_Next(SerialDeviceInfo *info)
+{
+  if (info == nullptr)
+    return static_cast<int>(std::errc::invalid_argument);
+  if (!enum_ptr)
+    return static_cast<int>(std::errc::not_connected);
+  return enum_ptr->next(*info);
+}
+
+int SerialEnum_PathTokNext(SerialDevicePathNode *path)
+{
+  if(path == nullptr || path->path == nullptr) return -1;
+
+  char *path_next;
+  const char *cpath_next;
+
+  if (strncmp(path->path, "pci", 3) == 0) 
   {
-    if(info == nullptr) return static_cast<int>(std::errc::invalid_argument);
-    if(!enum_ptr) return static_cast<int>(std::errc::not_connected);
-    return enum_ptr->next(*info);
+    path->path += 3;
+    path->type = LocationType::PCI_ROOT;
+    // Skip to the bus number, we don't record PCI domain
+    path->path = strchr(path->path, ':');
+    if(path->path == nullptr) return -1;
+    path->path++;
+    path->number = strtoul(path->path, &path_next, 16);
+    cpath_next = strchr(path_next, '/');
+  } 
+  else if (strncmp(path->path, "usb", 3) == 0) 
+  {
+    path->path += 3;
+    path->type = LocationType::USB_ROOT;
+
+    path->number = strtoul(path->path, &path_next, 16);
+    cpath_next = strchr(path_next, '/');
+  } 
+  else 
+  {
+    unsigned domain;
+    unsigned short bus, slot = 0;
+    char c;
+    switch (path->type) 
+    {
+    case LocationType::USB_ROOT:
+    case LocationType::USB_PORT:
+      path->type = LocationType::USB_PORT;
+      cpath_next = path->path;
+      c = *cpath_next;
+      while (c != '/' && c != '\0')
+      {
+        if (std::isxdigit(c)) 
+        {
+          // Parse number
+          path->number = strtoul(cpath_next, &path_next, 16);
+          cpath_next = path_next;
+          c = *cpath_next;
+        }
+        else  // If we reach a ':' indicating an interface, we're done
+        if (c == ':') 
+        {
+          return -1;
+        }
+        else c = *(++cpath_next);
+      }
+      break;
+    case LocationType::PCI_ROOT:
+    case LocationType::PCI_SLOT:
+      if (sscanf(path->path, "%x:%hx:%hx", &domain, &bus, &slot) == 3)
+      {
+        path->number = slot;
+        path->type = LocationType::PCI_SLOT;
+        cpath_next = strchr(path->path + 5, '/');
+      } 
+      else 
+      {
+        path->path = nullptr;
+        return -1;
+      }
+      break;
+    default:
+      path->path = nullptr;
+      return -1;
+    }
   }
+  if (cpath_next != nullptr)
+    ++cpath_next;
+  path->path = cpath_next;
+  return 0;
+}
 
   void SerialEnum_Finish()
   {
