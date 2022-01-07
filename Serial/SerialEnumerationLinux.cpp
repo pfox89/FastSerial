@@ -191,10 +191,10 @@ private:
   const char* get_path(udev_device* parent)
   {
     const char* ppath = udev_device_get_devpath(parent);
-    const char* phypath = strrchr(ppath, '/');
     
-    if(phypath != nullptr)
+    if(ppath != nullptr)
     {
+      const char* phypath = strchr(++ppath, '/');
       return ++phypath;
     }
     else return nullptr;
