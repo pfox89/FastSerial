@@ -106,6 +106,9 @@ namespace Serial
     /// Get serial transmission errors encountered
     int errorFlags() const noexcept;
 
+    /// \brief Wait until all transmitted data has been sent to device
+    int flush() noexcept;
+
     /// \brief Purge serial port, clearing buffers of any unhandled data
     /// \param type Specify which buffers to purge
     int purge(Purge type) noexcept;

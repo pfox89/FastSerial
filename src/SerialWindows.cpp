@@ -22,7 +22,7 @@ namespace Serial
 
   int Device::open(const char* port) noexcept
   {
-    _hPort = CreateFileA(port, GENERIC_READ | GENERIC_WRITE, 0, 0, OPEN_EXISTING, FILE_FLAG_WRITE_THROUGH, 0);
+    _hPort = CreateFileA(port, GENERIC_READ | GENERIC_WRITE, 0, 0, OPEN_EXISTING, 0, 0);
 
     if (INVALID_HANDLE_VALUE == _hPort) return -static_cast<int>(GetLastError());
 
@@ -200,6 +200,12 @@ namespace Serial
   int Device::errorFlags() const noexcept
   {
     return _errors;
+  }
+
+  int Device::flush() noexcept
+  {
+    if(false == FlushFileBuffers(_hPort)) return -static_cast<int>(GetLastError());
+    return 0;
   }
 
   int Device::purge(Purge type) noexcept
