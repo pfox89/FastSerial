@@ -105,6 +105,8 @@ struct UDevEnumeration
             else
               info.description = "Standard PNP Serial Device";
           }
+          else
+            info.description = "Custom PNP Serial Device";
 
           info.path = get_path(parent);
 
@@ -120,6 +122,10 @@ struct UDevEnumeration
           // The only info we can get for platform devices is the driver, so add friendly name for most common PC hardware
           if(strcmp(info.description, "serial8250") == 0)
             info.description = "8250/16550 Series Platform Serial Device";
+          else
+            info.description = "Platform Serial Device";
+          
+          info.path = get_path(parent);
 
           info.type = SerialBusType::BUS_PLATFORM;
         }
@@ -191,18 +197,19 @@ private:
   const char* get_path(udev_device* parent) noexcept
   {
     const char* ppath = udev_device_get_devpath(parent);
-    SerialBusType type = SerialBusType::BUS_UNKNOWN;
+
+    bool first = true;
 
     if(ppath != nullptr)
     {
       const char* phypath = strchr(++ppath, '/');
 
       if (phypath == nullptr) return nullptr;
-
+      ++phypath;
       size_t strsize = strlen(phypath);
       if (_pathBufferSize < strsize)
       {
-        _pathBufferSize = std::max((_pathBufferSize * 3) / 2, strsize));
+        _pathBufferSize = std::max((_pathBufferSize * 3) / 2, strsize);
         _pathBuffer = std::make_unique<char[]>(_pathBufferSize);
         if (!_pathBuffer)
         {
@@ -216,7 +223,7 @@ private:
 
       while(phypath != nullptr)
       {
-
+        
         if (strncmp(phypath, "pci", 3) == 0)
         {
           phypath += 3;
@@ -224,11 +231,22 @@ private:
           phypath = strchr(phypath, ':');
           if (phypath != nullptr)
           {
-            memcpy(dest, "PCI ", 5);
-            dest += 5;
+            if(first) first = false;
+            else 
+            {
+              *dest++ = ',';
+              *dest++ = ' ';
+            }
+            memcpy(dest, "PCI ", 4);
+            dest += 4;
             ++phypath;
-            if (std::isxdigit(*phypath)) *dest++ = *phypath++;
-            if (std::isxdigit(*phypath)) *dest++ = *phypath++;
+            if (std::isxdigit(*phypath))
+            {
+              if(*phypath != '0')
+                *dest++ = std::toupper(*phypath++);
+              else ++phypath;
+            }
+            if (std::isxdigit(*phypath)) *dest++ = std::toupper(*phypath++);
 
             phypath = strchr(phypath, '/');
             if (phypath == nullptr) break;
@@ -239,8 +257,9 @@ private:
             if (phypath[4] == ':' && phypath[7] == ':' && std::isxdigit(phypath[8]) && std::isxdigit(phypath[9]))
             {
               memcpy(dest, ", Device ", 9);
-              *dest++ = phypath[8];
-              *dest++ = phypath[9];
+              dest += 9;
+              if(phypath[8] != '0') *dest++ = std::toupper(phypath[8]);
+              *dest++ = std::toupper(phypath[9]);
 
               phypath += 10;
               phypath = strchr(phypath, '/');
@@ -249,6 +268,13 @@ private:
         }
         else if (strncmp(phypath, "usb", 3) == 0)
         {
+          if(first) first = false;
+          else 
+          {
+            *dest++ = ',';
+            *dest++ = ' ';
+          }
+
           memcpy(dest, "USB ", 4);
           dest += 4;
 
@@ -256,37 +282,77 @@ private:
           // Look for interface to get node that contains full path of root_hub-port-port-port-...:config.interface
           cpath_next = strchr(phypath, ':');
           if (cpath_next == nullptr) break;
+          const char* phypath_temp = cpath_next;
           // Search backwards for last '/' before ':' to find full path
-          while (cpath_next > phypath && *cpath_next-- != '/')
-          {}
+          while (phypath_temp > phypath && *phypath_temp != '/')
+          { --phypath_temp; }
           // First digit is root hub number
-          phypath = ++cpath_next;
+          phypath = ++phypath_temp;
           if (false == std::isxdigit(*phypath)) break;
 
-          *dest++ = *phypath++;
-          if (std::isxdigit(*phypath)) *dest++ = *phypath++;
+          *dest++ = std::toupper(*phypath++);
+          if (std::isxdigit(*phypath)) *dest++ = std::toupper(*phypath++);
 
           // Subsequent digits, delimited by '-' are port numbers
           while(phypath < cpath_next && *phypath++ == '-' && std::isxdigit(phypath[0]))
           {
             memcpy(dest, ", Port ", 7);
             dest += 7;
-            *dest++ = *phypath++;
+            *dest++ = std::toupper(*phypath++);
             if (std::isxdigit(*phypath))
             {
-              *dest++ = *phypath++;
+              *dest++ = std::toupper(*phypath++);
             }
           }
 
           break;
         }
+        else if (strncmp(phypath, "pnp", 3) == 0)
+        {
+          phypath += 3;
+          if (std::isxdigit(*phypath))
+          {
+            first = false;
+
+            memcpy(dest, "PNP ", 4);
+            dest += 4;
+            *dest++ = *phypath++;
+            if(std::isxdigit(*phypath))
+              *dest++ = std::toupper(*phypath++);
+
+            phypath = strchr(phypath, ':');
+            if(phypath == nullptr) break;
+            if(std::isxdigit(phypath[1]) && std::isxdigit(phypath[2]))
+            {
+              memcpy(dest, ", Device ", 9);
+              dest += 9;
+           
+              *dest++ = std::toupper(phypath[1]);
+              *dest++ = std::toupper(phypath[2]);
+            }
+            break;
+          }
+        }
+        else if (strncmp(phypath, "platform", 8) == 0)
+        {
+          first = false;
+          phypath = strchr(phypath + 8, '/');
+          if(phypath == nullptr) break;
+          ++phypath;
+          memcpy(dest, "Platform, ", 10);
+          dest += 10;
+          auto bytes = strlen(phypath);
+          memcpy(dest, phypath, bytes);
+          dest += bytes;
+          break;
+        }
+        else break;
         if (phypath != nullptr) ++phypath;
       }
       if (dest != nullptr) *dest = '\0';
     }
-
+    if(first) return nullptr;
     return _pathBuffer.get();
-    else return nullptr;
   }
 
   unsigned                _typeMask;
