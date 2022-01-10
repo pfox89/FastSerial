@@ -26,29 +26,6 @@ enum SerialBusType
   BUS_PLATFORM = 0x8,
   BUS_ANY      = BUS_USB | BUS_PCI | BUS_PNP | BUS_PLATFORM
 };
-#ifdef __cplusplus 
-/// Possible types of bus this device can be connected to
-enum class LocationType
-#else
-enum LocationType
-#endif
-{
-  NONE,
-  PCI_ROOT,
-  PCI_SLOT,
-  PNP_ROOT,
-  PNP_SLOT,
-  USB_ROOT,
-  USB_PORT
-};
-
-/// Node in serial device path to allow iterating over path
-struct SerialDevicePathNode
-{
-  const char*    path;
-  LocationType   type;
-  unsigned short number;
-};
 
 /// Information about device
 struct SerialDeviceInfo
@@ -94,18 +71,6 @@ extern "C" {
   /// Finish enumeration, freeing all associated resources
   DECLSPEC void SerialEnum_Finish();
 
-  DECLSPEC int SerialEnum_PathTokNext(SerialDevicePathNode* path);
-
-  /// @brief Get null terminated string representing location type
-  DECLSPEC const char* SerialEnum_LocationType_to_cstring(LocationType type);
-
-  /// \brief Print device path to string
-  /// \param[in]  port   Port to print device path for
-  /// \param[out] buffer Destination to print string to
-  /// \param[in]  size   Size of buffer
-  /// \return Number of bytes printed 
-  DECLSPEC int SerialDevicePathNode_Path_print(const SerialDeviceInfo& port, char* buffer, int size);
-
   /// Get String describing SerialBusType
   DECLSPEC const char* SerialBusType_to_cstring(SerialBusType type);
 
@@ -117,9 +82,6 @@ DECLSPEC std::ostream& operator<<(std::ostream& os, SerialBusType type) noexcept
 
 /// Stream insertion operator to pretty-print serial device information
 DECLSPEC std::ostream& operator<<(std::ostream& os, const SerialDeviceInfo& port) noexcept;
-
-/// Stream insertion operator to pretty-print serial device node
-DECLSPEC std::ostream& operator<<(std::ostream& os, const SerialDevicePathNode& node) noexcept;
 
 /// C++ overload to convert to SerialBusType to cstring
 static inline const char* to_cstring(SerialBusType type) noexcept
@@ -140,41 +102,6 @@ inline std::string to_string(SerialBusType type) noexcept
 
 namespace Serial
 {
-
-
-#ifdef __cplusplus
-  /// @brief Range of serial device path nodes to enable iterating over path
-  struct Path
-  {
-    SerialDevicePathNode node;
-    Path(const SerialDeviceInfo& info)
-      : node{ info.path, LocationType::NONE, 0}
-    {}
-
-    struct iterator
-    {
-      Path& path;
-      int valid;
-
-      iterator& operator++() noexcept
-      {
-        valid = SerialEnum_PathTokNext(&path.node);
-        return *this;
-      }
-     
-      const SerialDevicePathNode& operator*() const noexcept { return path.node; }
-      const SerialDevicePathNode* operator->() const noexcept { return &path.node; }
-
-      bool operator!=(iterator&)
-      {
-        return valid == 0;
-      }
-    };
-
-    iterator begin() noexcept { return ++iterator{ *this,0}; }
-    iterator end() noexcept { return iterator{ *this,0}; }
-  };
-#endif
 
   /// Iterator to iterate over ports enumerator
   struct PortIter

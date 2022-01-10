@@ -22,7 +22,7 @@ struct UDevEnumeration
   UDevEnumeration() noexcept = default;
   UDevEnumeration(const UDevEnumeration& other) = delete;
 
-  int init(unsigned int type)
+  int init(unsigned int type) noexcept
   {
     _typeMask = type;
 
@@ -188,23 +188,114 @@ struct UDevEnumeration
 
 private:
 
-  const char* get_path(udev_device* parent)
+  const char* get_path(udev_device* parent) noexcept
   {
     const char* ppath = udev_device_get_devpath(parent);
-    
+    SerialBusType type = SerialBusType::BUS_UNKNOWN;
+
     if(ppath != nullptr)
     {
       const char* phypath = strchr(++ppath, '/');
-      return ++phypath;
+
+      if (phypath == nullptr) return nullptr;
+
+      size_t strsize = strlen(phypath);
+      if (_pathBufferSize < strsize)
+      {
+        _pathBufferSize = std::max((_pathBufferSize * 3) / 2, strsize));
+        _pathBuffer = std::make_unique<char[]>(_pathBufferSize);
+        if (!_pathBuffer)
+        {
+          _pathBufferSize = 0;
+          return nullptr;
+        }
+      }
+      char* dest = _pathBuffer.get();
+
+      const char* cpath_next;
+
+      while(phypath != nullptr)
+      {
+
+        if (strncmp(phypath, "pci", 3) == 0)
+        {
+          phypath += 3;
+          // Skip to the bus number, we don't record PCI domain
+          phypath = strchr(phypath, ':');
+          if (phypath != nullptr)
+          {
+            memcpy(dest, "PCI ", 5);
+            dest += 5;
+            ++phypath;
+            if (std::isxdigit(*phypath)) *dest++ = *phypath++;
+            if (std::isxdigit(*phypath)) *dest++ = *phypath++;
+
+            phypath = strchr(phypath, '/');
+            if (phypath == nullptr) break;
+              
+            ++phypath;
+
+            // Format should be XXXX:XX:XX with domain, bus, slot in the fields
+            if (phypath[4] == ':' && phypath[7] == ':' && std::isxdigit(phypath[8]) && std::isxdigit(phypath[9]))
+            {
+              memcpy(dest, ", Device ", 9);
+              *dest++ = phypath[8];
+              *dest++ = phypath[9];
+
+              phypath += 10;
+              phypath = strchr(phypath, '/');
+            }
+          }
+        }
+        else if (strncmp(phypath, "usb", 3) == 0)
+        {
+          memcpy(dest, "USB ", 4);
+          dest += 4;
+
+          phypath += 3;
+          // Look for interface to get node that contains full path of root_hub-port-port-port-...:config.interface
+          cpath_next = strchr(phypath, ':');
+          if (cpath_next == nullptr) break;
+          // Search backwards for last '/' before ':' to find full path
+          while (cpath_next > phypath && *cpath_next-- != '/')
+          {}
+          // First digit is root hub number
+          phypath = ++cpath_next;
+          if (false == std::isxdigit(*phypath)) break;
+
+          *dest++ = *phypath++;
+          if (std::isxdigit(*phypath)) *dest++ = *phypath++;
+
+          // Subsequent digits, delimited by '-' are port numbers
+          while(phypath < cpath_next && *phypath++ == '-' && std::isxdigit(phypath[0]))
+          {
+            memcpy(dest, ", Port ", 7);
+            dest += 7;
+            *dest++ = *phypath++;
+            if (std::isxdigit(*phypath))
+            {
+              *dest++ = *phypath++;
+            }
+          }
+
+          break;
+        }
+        if (phypath != nullptr) ++phypath;
+      }
+      if (dest != nullptr) *dest = '\0';
     }
+
+    return _pathBuffer.get();
     else return nullptr;
   }
 
-  unsigned           _typeMask;
-  udev_ptr           _udev;
-  udev_device_ptr    _dev;
-  udev_enumerate_ptr _enumerate;
-  udev_list_entry*   _devices;
+  unsigned                _typeMask;
+  udev_ptr                _udev;
+  udev_device_ptr         _dev;
+  udev_enumerate_ptr      _enumerate;
+  udev_list_entry*        _devices;
+  std::unique_ptr<char[]> _pathBuffer;
+  size_t                  _pathBufferSize;
 };
 
 thread_local std::unique_ptr<UDevEnumeration> enum_ptr;
@@ -226,86 +317,6 @@ int SerialEnum_Next(SerialDeviceInfo *info)
   if (!enum_ptr)
     return static_cast<int>(std::errc::not_connected);
   return enum_ptr->next(*info);
-}
-
-int SerialEnum_PathTokNext(SerialDevicePathNode *path)
-{
-  if(path == nullptr || path->path == nullptr) return -1;
-
-  char *path_next;
-  const char *cpath_next;
-
-  if (strncmp(path->path, "pci", 3) == 0) 
-  {
-    path->path += 3;
-    path->type = LocationType::PCI_ROOT;
-    // Skip to the bus number, we don't record PCI domain
-    path->path = strchr(path->path, ':');
-    if(path->path == nullptr) return -1;
-    path->path++;
-    path->number = strtoul(path->path, &path_next, 16);
-    cpath_next = strchr(path_next, '/');
-  } 
-  else if (strncmp(path->path, "usb", 3) == 0) 
-  {
-    path->path += 3;
-    path->type = LocationType::USB_ROOT;
-
-    path->number = strtoul(path->path, &path_next, 16);
-    cpath_next = strchr(path_next, '/');
-  } 
-  else 
-  {
-    unsigned domain;
-    unsigned short bus, slot = 0;
-    char c;
-    switch (path->type) 
-    {
-    case LocationType::USB_ROOT:
-    case LocationType::USB_PORT:
-      path->type = LocationType::USB_PORT;
-      cpath_next = path->path;
-      c = *cpath_next;
-      while (c != '/' && c != '\0')
-      {
-        if (std::isxdigit(c)) 
-        {
-          // Parse number
-          path->number = strtoul(cpath_next, &path_next, 16);
-          cpath_next = path_next;
-          c = *cpath_next;
-        }
-        else  // If we reach a ':' indicating an interface, we're done
-        if (c == ':') 
-        {
-          return -1;
-        }
-        else c = *(++cpath_next);
-      }
-      break;
-    case LocationType::PCI_ROOT:
-    case LocationType::PCI_SLOT:
-      if (sscanf(path->path, "%x:%hx:%hx", &domain, &bus, &slot) == 3)
-      {
-        path->number = slot;
-        path->type = LocationType::PCI_SLOT;
-        cpath_next = strchr(path->path + 5, '/');
-      } 
-      else 
-      {
-        path->path = nullptr;
-        return -1;
-      }
-      break;
-    default:
-      path->path = nullptr;
-      return -1;
-    }
-  }
-  if (cpath_next != nullptr)
-    ++cpath_next;
-  path->path = cpath_next;
-  return 0;
 }
 
   void SerialEnum_Finish()

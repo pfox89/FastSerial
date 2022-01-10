@@ -8,6 +8,8 @@
 
 #include "SerialEnumeration.h"
 
+/// @brief 
+/// @tparam T 
 template<class T>
 struct process_heap_deleter {
   void operator()(T* ptr) { HeapFree(GetProcessHeap(), 0, ptr); };
@@ -72,8 +74,6 @@ using wstring_buffer_ptr = process_heap_ptr<inline_str<wchar_t>>;
 struct EnumData
 {
   HANDLE heap() const noexcept { return _hHeap; }
-
-  EnumData() noexcept = default;
 
   /// \brief Initialize enumeration. This function must be called after constructor or deinit() before calling any other functions
   /// \param hHeap Heap to use for allocating memory
@@ -240,7 +240,7 @@ struct EnumData
       if (cr == CR_SUCCESS) info.description = copybuf(_wbuf->data, _wbuf->size);
 
       cr = get_reg_property(parent, CM_DRP_LOCATION_PATHS);
-      info.path = copybuf(_wbuf->data, _wbuf->size);
+      info.path = parse_path();
 
       return CM_MapCrToWin32Err(cr, ERROR_NOT_SUPPORTED);
     } while (_currentInterfaceSize > 0);
@@ -263,6 +263,106 @@ private:
   wstring_buffer_ptr _wbuf;
   string_buffer_ptr _strbuf;
 
+  const char* parse_path() noexcept
+  {
+    const wchar_t* pos = _wbuf->data;
+    // We probably won't use more than half of the size of the retrieved path in the output, so reserve this much
+    if (false == strbuf_reserve(_wbuf->size / 2)) return nullptr;
+
+    char* output_start = &_strbuf->data[_strbuf->size];
+    char* output = output_start;
+
+    bool first = true;
+    unsigned short size = _strbuf->size;
+
+    while (pos != nullptr)
+    {
+      if ((_strbuf->capacity - size) < 12)
+      {
+        // ", Device XX" is 12 bytes, so ensure at least this much is reserved
+        if (false == strbuf_reserve(12)) break;
+      }
+
+      // Add comma delimeter after first entry
+      if (first) first = false;
+      else
+      {
+        *output++ = ',';
+        *output++ = ' ';
+        size += 2;
+      }
+
+      if (_wcsnicmp(pos, L"PCI", 3) == 0)
+      {
+        if (_wcsnicmp(&pos[3], L"ROOT(", 5) == 0)
+        {
+          pos += 8;
+          memcpy(output, "PCI ", 4);
+          output += 4;
+          size += (4 + 2);
+        }
+        else
+        {
+          pos += 4;
+          memcpy(output, "Device ", 7);
+          output += 7;
+          size += (7 + 2);
+          //path->number = static_cast<unsigned short>(strtoul(pos, nullptr, 16) >> 8U);
+        }
+        if (std::isxdigit(pos[0]))
+        {
+          *output++ = static_cast<char>(*pos++);
+        }
+        else break;
+        if(std::isxdigit(pos[1]))
+        {
+          *output++ = static_cast<char>(*pos++);
+        }
+       
+      }
+      else if (_wcsnicmp(pos, L"USB", 3) == 0)
+      {
+        if (_wcsnicmp(&pos[3], L"ROOT(", 5) == 0)
+        {
+          pos += 8;
+          memcpy(output, "USB ", 4);
+          output += 4;
+          size += 4;
+        }
+        else
+        {
+          pos += 4;
+          memcpy(output, "Port ", 5);
+          output += 5;
+          size += 5;
+        }
+
+        if (std::isxdigit(pos[0]))
+        {
+          *output++ = static_cast<char>(*pos++);
+        }
+        else break;
+        if (std::isxdigit(pos[1]))
+        {
+          *output++ = static_cast<char>(*pos++);
+        }
+      }
+      else
+      {
+        break;
+      }
+
+      // Look for end of this node (delimeter '#')
+      const wchar_t* next = wcschr(pos, L'#');
+      if (next == nullptr) break;
+      pos = ++next;
+    }
+    *output = '\0';
+    ++size;
+    _strbuf->size = size;
+    return output_start;
+  }
+  
   /// \brief Get bus type of currently selected device
   /// \return Bus type enumeration
   SerialBusType getBusType() noexcept
@@ -480,60 +580,4 @@ extern "C"
   {
     s_data.reset();
   }
- 
-  DECLSPEC int SerialEnum_PathTokNext(SerialDevicePathNode* path)
-  {
-    if (path == nullptr || path->path == nullptr)
-    {
-      return -1;
-    }
-    if (*path->path == '\0')
-    {
-      path->path = nullptr;
-      return -1;
-    }
-
-    const char* pos = path->path;
-
-    const char* next = strchr(pos, '#');
-    if (next != nullptr) ++next;
-    else next = strchr(pos, '\0');
-
-    if (strncmp(pos, "PCI", 3) == 0)
-    {
-      if (strncmp(&pos[3], "ROOT(", 5) == 0)
-      {
-        pos += 8;
-        path->type = LocationType::PCI_ROOT;
-        path->number = static_cast<unsigned short>(strtoul(pos, nullptr, 16));
-      }
-      else
-      {
-        pos += 4;
-        path->type = LocationType::PCI_SLOT;
-
-        path->number = static_cast<unsigned short>(strtoul(pos, nullptr, 16) >> 8U);
-      }
-      path->path = next;
-      return 0;
-    }
-    else if (strncmp(pos, "USB", 3) == 0)
-    {
-      if (strncmp(&pos[3], "ROOT(", 5) == 0)
-      {
-        pos += 8;
-        path->type = LocationType::USB_ROOT;
-      }
-      else
-      {
-        pos += 4;
-        path->type = LocationType::USB_PORT;
-      }
-      path->number = static_cast<unsigned short>(strtoul(pos, nullptr, 16));
-      path->path = next;
-      return 0;
-    }
-    return -1;
-  }
 }
-
