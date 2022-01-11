@@ -7,7 +7,7 @@
       "inheritEnvironments": [ "msvc_x64_x64" ],
       "buildRoot": "${projectDir}\\out\\build\\${name}",
       "installRoot": "${projectDir}\\out\\install\\${name}",
-      "cmakeCommandArgs": "-DLOOPBACK_SERIAL=/dev/ttyUSB0",
+      "cmakeCommandArgs": "-DLOOPBACK_SERIALPORT=\\\\.\\COM6",
       "buildCommandArgs": "",
       "ctestCommandArgs": ""
     },
@@ -20,8 +20,7 @@
       "cmakeCommandArgs": "-DLOOPBACK_SERIAL=/dev/ttyUSB0",
       "buildCommandArgs": "",
       "ctestCommandArgs": "",
-      "inheritEnvironments": [ "msvc_x64_x64" ],
-      "variables": []
+      "inheritEnvironments": [ "msvc_x64_x64" ]
     }
   ]
 }

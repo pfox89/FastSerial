@@ -36,7 +36,7 @@ namespace Serial
     DCB dcb{
         sizeof(DCB), // DCBLength
         baudRate,    // BaudRate
-        binary,      // fBinary
+        true,      // fBinary
         parity == Parity::None ? 0U : 1U, // fParity
         flowControl, // fOutxCtsFlow
         0, // fOutxDsrFlow
@@ -112,35 +112,30 @@ namespace Serial
   int Device::read(void* data, unsigned count) noexcept
   {
     DWORD read;
-    int total;
     if (false == ReadFile(_hPort, data, count, &read, nullptr))
     {
       return -static_cast<int>(GetLastError());
     }
-    if (read < count)
-    {
-      total = read;
-      if (false == ReadFile(_hPort, static_cast<char*>(data) + total, count, &read, nullptr))
-      {
-        return -static_cast<int>(GetLastError());
-      }
-      else
-        read += total;
-    }
     return read;
   }
 
-  int  Device::receiveQueueLevel() noexcept
+  int Device::receiveQueueLevel() noexcept
   {
+    // Store error in case we want to check it later
     COMSTAT status;
-    if (false == ClearCommError(_hPort, &_errors, &status)) return -static_cast<int>(GetLastError());
+    DWORD errors;
+    if (false == ClearCommError(_hPort, &errors, &status)) return -static_cast<int>(GetLastError());
+    _errors |= errors;
     return status.cbInQue;
   }
 
   int Device::transmitQueueLevel() noexcept
   {
+    // Store error in case we want to check it later
     COMSTAT status;
-    if (false == ClearCommError(_hPort, &_errors, &status)) return -static_cast<int>(GetLastError());
+    DWORD errors;
+    if (false == ClearCommError(_hPort, &errors, &status)) return -static_cast<int>(GetLastError());
+    _errors |= errors;
     return status.cbOutQue;
   }
 
@@ -194,9 +189,11 @@ namespace Serial
   */
 
   int Device::events() noexcept
-  {  
-    if (false == ClearCommError(_hPort, &_errors, &status)) return -static_cast<int>(GetLastError());
-    return _errors;
+  {
+    if (_errors == 0 && false == ClearCommError(_hPort, &_errors, nullptr)) return -static_cast<int>(GetLastError());
+    int events = _errors;
+    _errors = 0;
+    return events;
   }
 
   int Device::flush() noexcept

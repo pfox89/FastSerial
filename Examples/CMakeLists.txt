@@ -7,7 +7,7 @@ set_tests_properties(EnumerationTest PROPERTIES TIMEOUT 10)
 add_executable(LoopbackTest "LoopbackTest.cpp")
 target_link_libraries(LoopbackTest fastserial)
 
-add_executable(TimeoutTest "TimeoutTest")
+add_executable(TimeoutTest "TimeoutTest.cpp")
 target_link_libraries(TimeoutTest fastserial)
 
 
