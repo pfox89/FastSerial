@@ -5,6 +5,7 @@
 #include <termios.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <sys/poll.h>
 
 #include <linux/serial.h>
 
@@ -196,20 +197,24 @@ namespace Serial
     // Want raw output
     options.c_oflag &= ~OPOST;
 
-    options.c_cc[VTIME] = timeout;
+    _timeout = timeout;
+
+    // Timeout is in 100ms intervals, which is pretty inconvenient
+    options.c_cc[VTIME] = timeout / 100;
     options.c_cc[VMIN] = 0;
-    
-    if (timeout > 0)
-    {
-      fcntl(_hPort, F_SETFL, 0);
-    }
-    else
-    {
-      fcntl(_hPort, F_SETFL, FNDELAY);
-    }
 
     if(tcsetattr(_hPort, TCSAFLUSH, &options) != 0)
       return -errno;
+
+    if (options.c_cc[VTIME] > 0)
+    {
+      if(fcntl(_hPort, F_SETFL, 0) != 0) return -errno;
+    }
+    else
+    {
+      // Set NDELAY to prevent reads from block if VTIME=0
+      if(fcntl(_hPort, F_SETFL, FNDELAY) != 0) return -errno;
+    }
 
     // Purge data in serial port
     return purge(Purge::All);
@@ -232,15 +237,24 @@ namespace Serial
 
   int Device::read(void* data, unsigned count) noexcept
   {
-    int actual_read = ::read(_hPort, data, count);
-    if (actual_read == -1)
+    int ret = 1;
+    if(_timeout < 100)
     {
-      return -errno;
+      // Polling is required for timeouts < 100ms
+      pollfd fds[1];
+      fds[0].fd = _hPort;
+      fds[0].events = POLLIN;
+      ret = poll( fds, 1, _timeout);
     }
-    else
+
+    if(ret > 0)
     {
-      return actual_read;
+      ret = ::read(_hPort, data, count);
     }
+  
+    if(ret < 0) return -errno;
+
+    return ret;
   }
 
   int  Device::receiveQueueLevel() noexcept

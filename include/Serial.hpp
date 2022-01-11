@@ -16,6 +16,8 @@
 #include <termios.h>
 #endif
 
+#include <cerrno>
+
 namespace Serial
 {
   // Define handle type here to avoid having to include Windows.h which pulls in a huge amount of junk
@@ -135,6 +137,39 @@ namespace Serial
     int _breakEvents;
     int _frameEvents;
     int _parityEvents;
+    int _timeout;
 #endif
+  };
+
+  template<unsigned MaxSize>
+  struct Frame
+  {
+    Frame(Device& dev, int desiredSize=MaxSize) noexcept
+      : _readFrom(dev), _status(0), _desiredSize(desiredSize), _data()
+    {}
+
+    int read() noexcept
+    {
+      if(_status < _desiredSize)
+      {
+        int s = _readFrom.read(&_data[_status], _desiredSize-_status);
+        if(s < 0) return s;
+        else if(s == 0) return -ETIMEDOUT;
+        else _status += s;
+        
+        if(_status < _desiredSize) return 0;
+      }
+      return _status;
+    }
+
+    Frame& desired(int desired) noexcept { _desiredSize = desired; return *this; }
+    int  status() const noexcept { return _status; }
+    int  desired() const noexcept { return _desiredSize; }
+    const void* data() const noexcept { return _data; }
+  private:
+    Device& _readFrom;
+    int  _status;
+    int  _desiredSize;
+    char _data[MaxSize];
   };
 }

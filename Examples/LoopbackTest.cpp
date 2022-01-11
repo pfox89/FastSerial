@@ -70,15 +70,13 @@ int main(int argc, char** argv)
   ms_int = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
   std::cout << "Flush took " << ms_int.count() << "ms" << std::endl;
   */
- 
+
   // --- Read data from port ---
-  int total_read = 0;
   t1 = high_resolution_clock::now();
-  status = dev.read(buffer, sizeof(buffer));
-  // Got partial read, try to read rest
-  while(status > 0 && (total_read += status) < sizeof(buffer))
+  Serial::Frame<sizeof(buffer)> to_read(dev);
+  while((status = to_read.read()) == 0)
   {
-    status = dev.read(&buffer[total_read], sizeof(buffer)-total_read);
+
   }
   t2 = high_resolution_clock::now();
   if (status < 0)
@@ -87,17 +85,17 @@ int main(int argc, char** argv)
     return -5;
   }
   ms_int = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
-  std::cout << "Read " << total_read << " bytes in " << ms_int.count() << "ms" << std::endl;
+  std::cout << "Read " << status << " bytes in " << ms_int.count() << "ms" << std::endl;
 
-  if (total_read != sizeof(testpattern))
+  if (status != sizeof(testpattern))
   {
-    std::cerr << "Error receiving bytes " << sizeof(testpattern) << " bytes sent " << total_read << " bytes received" << std::endl;
+    std::cerr << "Error receiving bytes " << sizeof(testpattern) << " bytes sent " << status << " bytes received" << std::endl;
     return -5;
   }
 
   // --- Check data that was read back ---
 
-  if (memcmp(testpattern, buffer, sizeof(buffer)) != 0)
+  if (memcmp(testpattern, to_read.data(), sizeof(testpattern)) != 0)
   {
     std::cerr << "Data received does not match! Sent " << testpattern << " received " << buffer << std::endl;
     return -6;
