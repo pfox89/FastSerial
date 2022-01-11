@@ -57,8 +57,7 @@ int main(int argc, char** argv)
     return -4;
   }
 
-
-  // --- Write data to port ---
+  /*
   t1 = high_resolution_clock::now();
   status = dev.flush();
   t2 = high_resolution_clock::now();
@@ -70,15 +69,15 @@ int main(int argc, char** argv)
   }
   ms_int = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
   std::cout << "Flush took " << ms_int.count() << "ms" << std::endl;
-
+  */
+ 
   // --- Read data from port ---
-  int total_read;
+  int total_read = 0;
   t1 = high_resolution_clock::now();
-  total_read = (status = dev.read(buffer, sizeof(buffer)));
+  status = dev.read(buffer, sizeof(buffer));
   // Got partial read, try to read rest
-  while(status > 0 && total_read < sizeof(buffer))
+  while(status > 0 && (total_read += status) < sizeof(buffer))
   {
-    total_read += status;
     status = dev.read(&buffer[total_read], sizeof(buffer)-total_read);
   }
   t2 = high_resolution_clock::now();
@@ -88,11 +87,11 @@ int main(int argc, char** argv)
     return -5;
   }
   ms_int = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
-  std::cout << "Read " << status << " bytes in " << ms_int.count() << "ms" << std::endl;
+  std::cout << "Read " << total_read << " bytes in " << ms_int.count() << "ms" << std::endl;
 
-  if (status != sizeof(testpattern))
+  if (total_read != sizeof(testpattern))
   {
-    std::cerr << "Error receiving bytes " << sizeof(testpattern) << " bytes sent " << status << " bytes received" << std::endl;
+    std::cerr << "Error receiving bytes " << sizeof(testpattern) << " bytes sent " << total_read << " bytes received" << std::endl;
     return -5;
   }
 

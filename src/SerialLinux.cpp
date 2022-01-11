@@ -211,7 +211,8 @@ namespace Serial
     if(tcsetattr(_hPort, TCSAFLUSH, &options) != 0)
       return -errno;
 
-    return 0;
+    // Purge data in serial port
+    return purge(Purge::All);
   }
 
 
