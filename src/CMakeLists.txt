@@ -4,7 +4,7 @@ set(SERIALPP_SOURCES ${PROJECT_SOURCE_DIR}/include/SerialEnumeration.h ${PROJECT
 if(WIN32)
   list(APPEND SERIALPP_SOURCES SerialEnumerationWindows.cpp SerialWindows.cpp)
 else()
-  list(APPEND SERIALPP_SOURCES SerialEnumerationLinux.cpp)
+  list(APPEND SERIALPP_SOURCES SerialEnumerationLinux.cpp SerialLinux.cpp)
 endif()
 
 # Add source to this project's executable.

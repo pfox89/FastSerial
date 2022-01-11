@@ -28,9 +28,7 @@ int main(int argc, char** argv)
   std::cout << "Port open" << std::endl;
 
   // --- Configure baud rate, mode, data bits, stop bits, parity, and flow control ---
-  status = dev.configure(9600, true, 8, Serial::Stop::OneBit, Serial::Parity::None, false);
-  if(status >= 0)
-    status = dev.setTimeout(20);
+  status = dev.configure(9600, 8, Serial::Stop::OneBit, Serial::Parity::None, false, 20);
 
   if (status < 0)
   {
@@ -74,9 +72,15 @@ int main(int argc, char** argv)
   std::cout << "Flush took " << ms_int.count() << "ms" << std::endl;
 
   // --- Read data from port ---
-
+  int total_read;
   t1 = high_resolution_clock::now();
-  status = dev.read(buffer, sizeof(buffer));
+  total_read = (status = dev.read(buffer, sizeof(buffer)));
+  // Got partial read, try to read rest
+  while(status > 0 && total_read < sizeof(buffer))
+  {
+    total_read += status;
+    status = dev.read(&buffer[total_read], sizeof(buffer)-total_read);
+  }
   t2 = high_resolution_clock::now();
   if (status < 0)
   {

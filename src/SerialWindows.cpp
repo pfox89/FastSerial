@@ -31,7 +31,7 @@ namespace Serial
     return 0;
   }
 
-  int Device::configure(unsigned int baudRate, bool binary, unsigned char dataBits, Stop stop, Parity parity, bool flowControl) noexcept
+  int Device::configure(unsigned int baudRate, unsigned char dataBits, Stop stop, Parity parity, bool flowControl, int timeout) noexcept
   {
     DCB dcb{
         sizeof(DCB), // DCBLength
@@ -58,17 +58,13 @@ namespace Serial
         static_cast<BYTE>(stop), // StopBits
         0, // XonChar
         0, // XoffChar
-        0, // ErrorChar
+        dataBits < 8 ? 0xFF : 0, // ErrorChar is 0xFF to match parity marking behavior in Linux if dataBits < 8
         0, // EofChar
         0, // EvtChar
         0, // wReserved1
     };
     if (false == SetCommState(_hPort, &dcb)) return -static_cast<int>(GetLastError());
-    return 0;
-  }
 
-  int Device::setTimeout(unsigned int timeout) noexcept
-  {
     COMMTIMEOUTS co;
     if (timeout > 0)
     {
@@ -96,8 +92,8 @@ namespace Serial
 
     if (false == SetCommTimeouts(_hPort, &co)) return -static_cast<int>(GetLastError());
     return 0;
+    return 0;
   }
-
 
   int Device::write(const void* data, unsigned count) noexcept
   {
@@ -197,8 +193,9 @@ namespace Serial
   }
   */
 
-  int Device::errorFlags() const noexcept
-  {
+  int Device::events() noexcept
+  {  
+    if (false == ClearCommError(_hPort, &_errors, &status)) return -static_cast<int>(GetLastError());
     return _errors;
   }
 

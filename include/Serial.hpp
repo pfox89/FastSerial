@@ -42,15 +42,22 @@ namespace Serial
   {
     None  = 0,
     Even  = 2,
-    Odd   = 1,
-    Mark  = 3,
-    Space = 4
+    Odd   = 1
   };
 
   enum class Stop
   {
     OneBit  = 0,
     TwoBits = 2
+  };
+
+  enum class Event
+  {
+    Overflow    = 0x1,
+    Overrun     = 0x2,
+    ParityError = 0x4,
+    FrameError  = 0x8,
+    Break       = 0x10
   };
 
   struct DECLSPEC Device
@@ -71,19 +78,12 @@ namespace Serial
 
     /// \brief Configure open port settings
     /// \param baudRate    Baud rate in bits per second
-    /// \param binary      false: port is opened in text mode, true: port is opened in binary mode  
     /// \param dataBits    Number of data bits in a frame
     /// \param stop        Number of stop bits in a frame
     /// \param parity      Parity mode
     /// \param flowControl Should RTS/CTS flow control be used?
     /// \return 0 or system error code
-    int configure(unsigned int baudRate, bool binary, unsigned char dataBits, Stop stop, Parity parity, bool flowControl) noexcept;
-
-    /// \brief Set serial timeouts
-    /// \param timeout Number of milliseconds to wait for IO before timing out
-    /// \return 0 or system error code
-    /// \remarks Setting the timeout to 0 will cause read operations to return immediately with the bytes currently available
-    int setTimeout(unsigned int timeout) noexcept;
+    int configure(unsigned int baudRate, unsigned char dataBits, Stop stop, Parity parity, bool flowControl, int timeout) noexcept;
 
     /// \brief Write bytes to serial port
     /// \param data  Pointer to data to write
@@ -100,11 +100,12 @@ namespace Serial
     /// Get number of bytes in receive buffer
     int receiveQueueLevel() noexcept;
 
-    ///  Get number of bytes in transmit buffer
+    /// Get number of bytes in transmit buffer
     int transmitQueueLevel() noexcept;
 
-    /// Get serial transmission errors encountered
-    int errorFlags() const noexcept;
+    /// Get Events that have occurred on this serial port
+    /// \return Combination of Event flags, or system error code if negative
+    int events() noexcept;
 
     /// \brief Wait until all transmitted data has been sent to device
     int flush() noexcept;
@@ -121,11 +122,19 @@ namespace Serial
     /// brief Get native handle to serial port
     HANDLE native() noexcept { return _hPort; }
 
+
   private:
     HANDLE        _hPort;
+
 #ifdef _WIN32
     unsigned long _events;
     unsigned long _errors;
+#else
+    int _overflowEvents;
+    int _overrunEvents;
+    int _breakEvents;
+    int _frameEvents;
+    int _parityEvents;
 #endif
   };
 }
