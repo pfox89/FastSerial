@@ -78,7 +78,7 @@ struct EnumData
   /// \brief Initialize enumeration. This function must be called after constructor or deinit() before calling any other functions
   /// \param hHeap Heap to use for allocating memory
   /// \return system_error code
-  int32_t init(HANDLE hHeap, unsigned int typeMask) noexcept
+  int init(HANDLE hHeap, unsigned int typeMask) noexcept
   {
     _hHeap = hHeap;
     _typeMask = typeMask;
@@ -116,143 +116,161 @@ struct EnumData
     return ERROR_SUCCESS;
   }
 
+  int lookup(SerialDeviceInfo& info, const void* id) noexcept
+  {
+    auto temp = _typeMask;
+    _typeMask = static_cast<unsigned>(SerialBusType::BUS_ANY);
+    int status = getInfo(info, static_cast<const WCHAR*>(id));
+    _typeMask = temp;
+
+    return status;
+  }
+
+  int getInfo(SerialDeviceInfo& info, const WCHAR* interfaceId) noexcept
+  {
+    _currentDeviceIdLen = sizeof(_currentDeviceId);
+    DEVPROPTYPE property_type;
+    CONFIGRET cr
+      = CM_Get_Device_Interface_PropertyW(interfaceId,
+        &DEVPKEY_Device_InstanceId,
+        &property_type,
+        (PBYTE)_currentDeviceId,
+        &_currentDeviceIdLen,
+        0);
+
+    if (cr == CR_SUCCESS)
+    {
+      if (property_type != DEVPROP_TYPE_STRING) return ERROR_DATATYPE_MISMATCH;
+
+      cr = CM_Locate_DevNodeW(&_device, _currentDeviceId, CM_LOCATE_DEVNODE_NORMAL);
+    }
+
+    if (cr != CR_SUCCESS)
+    {
+      info = { 0 };
+      return CM_MapCrToWin32Err(cr, ERROR_NOT_SUPPORTED);
+    }
+
+    info.id = copybuf(interfaceId, -1);
+
+    DWORD dwSize = 0;
+    info.vid = 0;
+    info.pid = 0;
+    info.type = SerialBusType::BUS_UNKNOWN;
+
+    DEVINST parent;
+
+    info.type = getBusType();
+
+    // If this isn't on a PCI or USB root, it may be a virtual device referencing a base physical device, so find its parent id
+    if (info.type == SerialBusType::BUS_UNKNOWN)
+    {
+      cr = CM_Get_Parent(&parent, _device, 0);
+      if (cr == CR_SUCCESS)
+      {
+        cr = get_device_id(parent);
+        info.type = getBusType();
+      }
+    }
+    else
+    {
+      parent = _device;
+    }
+
+    if (info.type == SerialBusType::BUS_USB)
+    {
+      if (0 == (_typeMask & static_cast<unsigned>(SerialBusType::BUS_USB)))
+        return ERROR_RETRY;
+
+      const wchar_t* pos = wcsstr(&_currentDeviceId[3], L"VID_");
+      if (pos != nullptr)
+      {
+        wchar_t* next;
+        info.vid = static_cast<uint16_t>(wcstoul(pos + 4, &next, 10));
+        pos = next;
+
+        pos = wcsstr(pos, L"PID_");
+        if (pos != nullptr)
+        {
+          info.pid = static_cast<uint16_t>(wcstoul(pos + 4, &next, 10));
+          pos = next;
+        }
+      }
+      //info.path = get_path(parent, L"USBROOT", sizeof(L"USBROOT") / sizeof(wchar_t), L"USB", sizeof(L"USB") / sizeof(wchar_t));
+
+    }
+    else if (info.type == SerialBusType::BUS_PCI)
+    {
+
+      if (0 == (_typeMask & static_cast<unsigned>(SerialBusType::BUS_PCI)))
+        return ERROR_RETRY;
+
+      const wchar_t* pos = wcsstr(&_currentDeviceId[3], L"VEN_");
+      if (pos != nullptr)
+      {
+        wchar_t* next;
+        info.vid = static_cast<uint16_t>(wcstoul(pos + 4, &next, 10));
+        pos = next;
+
+        pos = wcsstr(pos, L"DEV_");
+        if (pos != nullptr)
+        {
+          info.pid = static_cast<uint16_t>(wcstoul(pos + 4, &next, 16));
+          pos = next;
+        }
+      }
+
+      //info.path = get_path(parent, L"PCIROOT", sizeof(L"PCIROOT") / sizeof(wchar_t), L"PCI", sizeof(L"PCI") / sizeof(wchar_t));
+    }
+    else
+    {
+      // Unknown type, only include on BUS_ANY
+      if (_typeMask != static_cast<unsigned>(SerialBusType::BUS_ANY))
+        return ERROR_RETRY;
+    }
+
+    cr = get_custom_device_property(L"PortName");
+    if (cr == CR_SUCCESS) info.name = copybuf(_wbuf->data, _wbuf->size);
+
+    cr = get_reg_property(_device, CM_DRP_MFG);
+    if (cr == CR_SUCCESS) info.manufacturer = copybuf(_wbuf->data, _wbuf->size);
+
+    cr = get_reg_property(_device, CM_DRP_FRIENDLYNAME);
+    if (cr == CR_SUCCESS) info.description = copybuf(_wbuf->data, _wbuf->size);
+
+    cr = get_reg_property(parent, CM_DRP_LOCATION_PATHS);
+    info.path = parse_path();
+
+    return CM_MapCrToWin32Err(cr, ERROR_NOT_SUPPORTED);
+  }
+
   /// \brief Get info for next device in list
   /// \param info reference to struct to store info strings
   /// \return system_error code, or -1 if there are no further devices
-  int32_t next(SerialDeviceInfo& info) noexcept
+  int next(SerialDeviceInfo& info) noexcept
   {
+    if (!_deviceInterfaceList) return ERROR_INVALID_HANDLE;
+    int status;
     do {
       _currentInterfaceSize = static_cast<DWORD>(wcsnlen_s(_currentInterface, _deviceInterfaceList->size));
       if (_currentInterfaceSize == 0) return -1;
 
-      _currentDeviceIdLen = sizeof(_currentDeviceId);
-      DEVPROPTYPE property_type;
-      CONFIGRET cr
-        = CM_Get_Device_Interface_PropertyW(_currentInterface,
-          &DEVPKEY_Device_InstanceId,
-          &property_type,
-          (PBYTE)_currentDeviceId,
-          &_currentDeviceIdLen,
-          0);
-
-      if (cr == CR_SUCCESS)
-      {
-        if (property_type != DEVPROP_TYPE_STRING) return ERROR_DATATYPE_MISMATCH;
-
-        cr = CM_Locate_DevNodeW(&_device, _currentDeviceId, CM_LOCATE_DEVNODE_NORMAL);
-      }
-
-      if (cr != CR_SUCCESS)
-      {
-        info = { 0 };
-        return CM_MapCrToWin32Err(cr, ERROR_NOT_SUPPORTED);
-      }
-
-      info.lpath = copybuf(_currentInterface, _currentInterfaceSize);
+      status = getInfo(info, _currentInterface);
 
       auto nextOffset = static_cast<unsigned short>(_currentInterfaceSize + 1);
       _currentInterface = _currentInterface + nextOffset;
       _deviceInterfaceList->size -= nextOffset;
 
-      DWORD dwSize = 0;
-      info.vid = 0;
-      info.pid = 0;
-      info.type = SerialBusType::BUS_UNKNOWN;
+    } while (status == ERROR_RETRY);
 
-      DEVINST parent;
-
-      info.type = getBusType();
-
-      // If this isn't on a PCI or USB root, it may be a virtual device referencing a base physical device, so find its parent id
-      if (info.type == SerialBusType::BUS_UNKNOWN)
-      {
-        cr = CM_Get_Parent(&parent, _device, 0);
-        if (cr == CR_SUCCESS)
-        {
-          cr = get_device_id(parent);
-          info.type = getBusType();
-        }
-      }
-      else
-      {
-        parent = _device;
-      }
-
-      if (info.type == SerialBusType::BUS_USB)
-      {
-        if(0 == (_typeMask & static_cast<unsigned>(SerialBusType::BUS_USB)))
-          continue;
-
-        const wchar_t* pos = wcsstr(&_currentDeviceId[3], L"VID_");
-        if (pos != nullptr)
-        {
-          wchar_t* next;
-          info.vid = static_cast<uint16_t>(wcstoul(pos + 4, &next, 10));
-          pos = next;
-
-          pos = wcsstr(pos, L"PID_");
-          if (pos != nullptr)
-          {
-            info.pid = static_cast<uint16_t>(wcstoul(pos + 4, &next, 10));
-            pos = next;
-          }
-        }
-        //info.path = get_path(parent, L"USBROOT", sizeof(L"USBROOT") / sizeof(wchar_t), L"USB", sizeof(L"USB") / sizeof(wchar_t));
-  
-      }
-      else if (info.type == SerialBusType::BUS_PCI)
-      {
-
-        if (0 == (_typeMask & static_cast<unsigned>(SerialBusType::BUS_PCI)))
-          continue;
-
-        const wchar_t* pos = wcsstr(&_currentDeviceId[3], L"VEN_");
-        if (pos != nullptr)
-        {
-          wchar_t* next;
-          info.vid = static_cast<uint16_t>(wcstoul(pos + 4, &next, 10));
-          pos = next;
-
-          pos = wcsstr(pos, L"DEV_");
-          if (pos != nullptr)
-          {
-            info.pid = static_cast<uint16_t>(wcstoul(pos + 4, &next, 16));
-            pos = next;
-          }
-        }
-
-        //info.path = get_path(parent, L"PCIROOT", sizeof(L"PCIROOT") / sizeof(wchar_t), L"PCI", sizeof(L"PCI") / sizeof(wchar_t));
-      }
-      else
-      {
-        // Unknown type, only include on BUS_ANY
-        if (_typeMask != static_cast<unsigned>(SerialBusType::BUS_ANY))
-          continue;
-      }
-
-      cr = get_custom_device_property(L"PortName");
-      if (cr == CR_SUCCESS) info.name = copybuf(_wbuf->data, _wbuf->size);
-
-      cr = get_reg_property(_device, CM_DRP_MFG);
-      if (cr == CR_SUCCESS) info.manufacturer = copybuf(_wbuf->data, _wbuf->size);
-
-      cr = get_reg_property(_device, CM_DRP_FRIENDLYNAME);
-      if (cr == CR_SUCCESS) info.description = copybuf(_wbuf->data, _wbuf->size);
-
-      cr = get_reg_property(parent, CM_DRP_LOCATION_PATHS);
-      info.path = parse_path();
-
-      return CM_MapCrToWin32Err(cr, ERROR_NOT_SUPPORTED);
-    } while (_currentInterfaceSize > 0);
-
-    return -1;
+    return 0;
   }
 
 private:
 
   HANDLE   _hHeap;
   unsigned _typeMask;
-  PWSTR    _currentInterface;
+  const WCHAR* _currentInterface;
   DWORD    _currentInterfaceSize;
   DEVINST  _device;
 
@@ -509,23 +527,37 @@ struct EnumDataPtr
   EnumDataPtr() noexcept = default;
   EnumDataPtr(EnumDataPtr& other) noexcept = delete;
 
-  /// \brief Allocate memory and initialize enumeration
-  /// \return system_error code
-  int init(unsigned int typeMask) noexcept
+  int alloc(HANDLE hHeap) noexcept
   {
-    reset();
-    HANDLE hHeap = GetProcessHeap();
-    ptr = reinterpret_cast<EnumData*>(HeapAlloc(hHeap, 0, sizeof(EnumData)));
+    if (ptr == nullptr)
+      ptr = reinterpret_cast<EnumData*>(HeapAlloc(hHeap, 0, sizeof(EnumData)));
+    else
+    {
+      // Call destructor to free managed resources
+      ptr->~EnumData();
+    }
 
-    int err;
     if (ptr == nullptr)
     {
-      err = ERROR_NOT_ENOUGH_MEMORY;
+      return ERROR_NOT_ENOUGH_MEMORY;
     }
     else
     {
       // Placement new to initialize object
       ptr = new (ptr) EnumData();
+    }
+    return 0;
+  }
+
+  /// \brief Allocate memory and initialize enumeration
+  /// \return system_error code
+  int init(unsigned int typeMask) noexcept
+  {
+    HANDLE hHeap = GetProcessHeap();
+
+    int err = alloc(hHeap);
+    if(err == 0)
+    {
       err = ptr->init(hHeap, typeMask);
 
       // If we ran out of memory, free all resources
@@ -572,9 +604,19 @@ extern "C"
 
   DECLSPEC int SerialEnum_Next(SerialDeviceInfo* info)
   {
-    if (s_data.ptr == nullptr || info == nullptr) return ERROR_INVALID_HANDLE;
+    if (s_data.ptr == nullptr) return ERROR_INVALID_HANDLE;
+    if (info == nullptr) return ERROR_BAD_ARGUMENTS;
+
     return s_data.ptr->next(*info);
   }
+
+  DECLSPEC int SerialEnum_GetDeviceInfo(SerialDeviceInfo* info, const void* id)
+  {
+    if (s_data.ptr == nullptr) return ERROR_INVALID_HANDLE;
+    if (info == nullptr || id == nullptr) return ERROR_BAD_ARGUMENTS;
+    return s_data.ptr->lookup(*info, id);
+  }
+
 
   DECLSPEC void SerialEnum_Finish()
   {

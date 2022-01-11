@@ -53,8 +53,122 @@ struct UDevEnumeration
     return 0;
   }
 
+  int getInfo(SerialDeviceInfo& info, const char* path) noexcept
+  {
+    _dev = udev_device_ptr(udev_device_new_from_syspath(_udev.get(), info.id));
+    if (_dev == nullptr) return errno;
+
+    info.name = udev_device_get_sysname(_dev.get());
+    const char* bus = udev_device_get_property_value(_dev.get(), "ID_BUS");
+
+    const char* vid_str = udev_device_get_property_value(_dev.get(), "ID_VENDOR_ID");
+    if (vid_str != nullptr) info.vid = strtoul(vid_str, nullptr, 16);
+    else info.vid = 0;
+    const char* pid_str = udev_device_get_property_value(_dev.get(), "ID_MODEL_ID");
+    if (pid_str != nullptr) info.pid = strtoul(pid_str, nullptr, 16);
+    else info.pid = 0;
+
+    info.manufacturer = udev_device_get_property_value(_dev.get(), "ID_VENDOR");
+    info.path = nullptr;
+
+    if (bus == nullptr)
+    {
+      udev_device* parent;
+      if ((parent = udev_device_get_parent_with_subsystem_devtype(_dev.get(), "pnp", nullptr)) != nullptr)
+      {
+        // Skip this device if we did not request PNP or any devices 
+        if (0 == (_typeMask & static_cast<unsigned>(SerialBusType::BUS_PNP)))
+          return EAGAIN;
+
+        info.description = udev_device_get_sysattr_value(parent, "id");
+        // Legacy PNP devices don't report friendly names, so add friendly name for known serial PNP devices
+        if (strncmp(info.description, "PNP050", 6) == 0)
+        {
+          if (info.description[6] == '1')
+            info.description = "16550A-compatible PNP Serial Device";
+          else
+            info.description = "Standard PNP Serial Device";
+        }
+        else
+          info.description = "Custom PNP Serial Device";
+
+        info.path = get_path(parent);
+
+        info.type = SerialBusType::BUS_PNP;
+      }
+      else if ((parent = udev_device_get_parent_with_subsystem_devtype(_dev.get(), "platform", nullptr)) != nullptr)
+      {
+        // Skip this device if we did not request PNP or any devices
+        if (0 == (_typeMask & static_cast<unsigned>(SerialBusType::BUS_PLATFORM)))
+          return EAGAIN;
+
+        info.description = udev_device_get_driver(parent);
+        // The only info we can get for platform devices is the driver, so add friendly name for most common PC hardware
+        if (strcmp(info.description, "serial8250") == 0)
+          info.description = "8250/16550 Series Platform Serial Device";
+        else
+          info.description = "Platform Serial Device";
+
+        info.path = get_path(parent);
+
+        info.type = SerialBusType::BUS_PLATFORM;
+      }
+      else
+      {
+        if (_typeMask != static_cast<unsigned>(SerialBusType::BUS_ANY)) continue;
+
+        info.description = nullptr;
+        info.type = SerialBusType::BUS_UNKNOWN;
+      }
+      info.manufacturer = nullptr;
+    }
+    else if (strncmp(bus, "usb", 3) == 0)
+    {
+      if (0 == (_typeMask & static_cast<unsigned>(SerialBusType::BUS_USB)))
+        // If we didn't ask for a USB device or any, skip this device
+        return EAGAIN;
+
+      info.description = udev_device_get_property_value(_dev.get(), "ID_MODEL_FROM_DATABASE");
+      if (info.description == nullptr
+        || (strcasestr(info.description, "controller") != nullptr)
+        || (strcasestr(info.description, "hub") != nullptr) // Workaround for funky udev bug where it shows the parent device model
+        )
+      {
+        info.description = udev_device_get_property_value(_dev.get(), "ID_MODEL");
+      }
+
+      udev_device* parent = udev_device_get_parent_with_subsystem_devtype(_dev.get(), "usb", nullptr);
+
+      info.path = get_path(parent);
+
+      info.type = SerialBusType::BUS_USB;
+    }
+    else if (strncmp(bus, "pci", 3) == 0)
+    {
+      if (0 == (_typeMask & static_cast<unsigned>(SerialBusType::BUS_PCI)))
+        return EAGAIN;
+
+      // domain:bus:slot.function
+      udev_device* parent = udev_device_get_parent_with_subsystem_devtype(_dev.get(), "pci", nullptr);
+
+      info.path = get_path(parent);
+
+      info.description = udev_device_get_property_value(_dev.get(), "ID_MODEL_FROM_DATABASE");
+      info.manufacturer = udev_device_get_property_value(_dev.get(), "ID_VENDOR_FROM_DATABASE");
+      info.type = SerialBusType::BUS_PCI;
+    }
+    else
+    {
+      if (_typeMask != static_cast<unsigned>(SerialBusType::BUS_ANY))
+        return EAGAIN;
+      info.description = nullptr;
+      info.type = SerialBusType::BUS_UNKNOWN;
+    }
+  }
+
   int next(SerialDeviceInfo& info) noexcept
   {
+    int status;
     static constexpr char virtual_path[] = "/sys/devices/virtual";
     do {
       do {
@@ -66,130 +180,15 @@ struct UDevEnumeration
         }
 
         if(_devices == nullptr) return -1;
-        info.lpath = udev_list_entry_get_name(_devices);
-        if(info.lpath == nullptr) return errno;
+        info.id = udev_list_entry_get_name(_devices);
+        if(info.id == nullptr) return errno;
         // Skip virtual ttys
-      } while(strncmp(info.lpath, virtual_path, sizeof(virtual_path)-1) == 0);
+      } while(strncmp(info.id, virtual_path, sizeof(virtual_path)-1) == 0);
 
-      _dev = udev_device_ptr(udev_device_new_from_syspath(_udev.get(), info.lpath));
-      if(_dev == nullptr) return errno;
-
-      info.name = udev_device_get_sysname(_dev.get());
-      const char* bus = udev_device_get_property_value(_dev.get(), "ID_BUS");
-      
-      const char* vid_str = udev_device_get_property_value(_dev.get(), "ID_VENDOR_ID");
-      if(vid_str != nullptr) info.vid = strtoul(vid_str, nullptr, 16);
-      else info.vid = 0;
-      const char* pid_str = udev_device_get_property_value(_dev.get(), "ID_MODEL_ID");
-      if(pid_str != nullptr) info.pid = strtoul(pid_str, nullptr, 16);
-      else info.pid = 0;
-
-      info.manufacturer = udev_device_get_property_value(_dev.get(), "ID_VENDOR");
-      info.path = nullptr;
-
-      if(bus == nullptr)
-      {
-        udev_device* parent;
-        if((parent = udev_device_get_parent_with_subsystem_devtype(_dev.get(), "pnp", nullptr)) != nullptr)
-        {
-          // Skip this device if we did not request PNP or any devices 
-          if(0 == (_typeMask & static_cast<unsigned>(SerialBusType::BUS_PNP)))
-            continue;
-
-          info.description = udev_device_get_sysattr_value(parent, "id");
-          // Legacy PNP devices don't report friendly names, so add friendly name for known serial PNP devices
-          if(strncmp(info.description, "PNP050", 6) == 0)
-          {
-            if(info.description[6] == '1')
-              info.description = "16550A-compatible PNP Serial Device";
-            else
-              info.description = "Standard PNP Serial Device";
-          }
-          else
-            info.description = "Custom PNP Serial Device";
-
-          info.path = get_path(parent);
-
-          info.type = SerialBusType::BUS_PNP;
-        }
-        else if((parent = udev_device_get_parent_with_subsystem_devtype(_dev.get(), "platform", nullptr)) != nullptr)
-        {
-          // Skip this device if we did not request PNP or any devices
-          if(0 == (_typeMask & static_cast<unsigned>(SerialBusType::BUS_PLATFORM)))
-            continue;
-
-          info.description = udev_device_get_driver(parent);
-          // The only info we can get for platform devices is the driver, so add friendly name for most common PC hardware
-          if(strcmp(info.description, "serial8250") == 0)
-            info.description = "8250/16550 Series Platform Serial Device";
-          else
-            info.description = "Platform Serial Device";
-          
-          info.path = get_path(parent);
-
-          info.type = SerialBusType::BUS_PLATFORM;
-        }
-        else
-        {
-          if( _typeMask != static_cast<unsigned>(SerialBusType::BUS_ANY)) continue;
-
-          info.description = nullptr;
-          info.type = SerialBusType::BUS_UNKNOWN;
-        }
-        info.manufacturer = nullptr;
-        break;
-      }
-      else if(strncmp(bus, "usb", 3) == 0)
-      {
-        if(0 == (_typeMask & static_cast<unsigned>(SerialBusType::BUS_USB)))
-        {
-          // If we didn't ask for a USB device or any, skip this device
-          continue;
-        }
-
-        info.description = udev_device_get_property_value(_dev.get(), "ID_MODEL_FROM_DATABASE");
-        if(info.description == nullptr 
-          || (strcasestr(info.description, "controller") != nullptr) 
-          || (strcasestr(info.description, "hub") != nullptr) // Workaround for funky udev bug where it shows the parent device model
-          )
-        {
-          info.description = udev_device_get_property_value(_dev.get(), "ID_MODEL");
-        }
-
-        udev_device* parent = udev_device_get_parent_with_subsystem_devtype(_dev.get(), "usb", nullptr);
-        
-        info.path = get_path(parent);
-
-        info.type = SerialBusType::BUS_USB;
-        break;
-      }
-      else if(strncmp(bus, "pci", 3) == 0)
-      {
-        if(0 == (_typeMask & static_cast<unsigned>(SerialBusType::BUS_PCI)))
-        {
-          continue;
-        }
-       
-        // domain:bus:slot.function
-        udev_device* parent = udev_device_get_parent_with_subsystem_devtype(_dev.get(), "pci", nullptr);
-        
-        info.path = get_path(parent);
-        
-        info.description = udev_device_get_property_value(_dev.get(), "ID_MODEL_FROM_DATABASE");
-        info.manufacturer = udev_device_get_property_value(_dev.get(), "ID_VENDOR_FROM_DATABASE");
-        info.type = SerialBusType::BUS_PCI;
-        break;
-      }
-      else
-      {
-        if( _typeMask != static_cast<unsigned>(SerialBusType::BUS_ANY)) continue;
-        info.description = nullptr;
-        info.type = SerialBusType::BUS_UNKNOWN;
-        break;
-      }
-    } while(1);
+      status = getInfo(info, info.id);
+    } while(status == EAGAIN);
     
-    return 0;
+    return status;
   }
 
 private:
@@ -383,6 +382,15 @@ int SerialEnum_Next(SerialDeviceInfo *info)
   if (!enum_ptr)
     return static_cast<int>(std::errc::not_connected);
   return enum_ptr->next(*info);
+}
+
+int SerialEnum_GetDeviceInfo(SerialDeviceInfo* info, const void* id)
+{
+  if (info == nullptr || id == nullptr)
+    return static_cast<int>(std::errc::invalid_argument);
+  if (!enum_ptr)
+    return static_cast<int>(std::errc::not_connected);
+  return enum_ptr->getInfo(*info, id);
 }
 
   void SerialEnum_Finish()

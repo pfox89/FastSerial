@@ -43,8 +43,8 @@ DECLSPEC std::ostream& operator<<(std::ostream& os, const SerialDeviceInfo& port
 {
   static constexpr std::streamsize width = 16;
   os.setf(std::ios::left);
-  if(port.lpath == nullptr) return os << "Invalid device\n";
-  os << port.lpath << '\n';
+  if(port.id == nullptr) return os << "Invalid device\n";
+  os << port.id << '\n';
 
   if (port.path != nullptr)
   {

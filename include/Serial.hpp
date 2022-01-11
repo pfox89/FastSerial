@@ -105,7 +105,7 @@ namespace Serial
     /// Get number of bytes in transmit buffer
     int transmitQueueLevel() noexcept;
 
-    /// Get Events that have occurred on this serial port
+    /// Get Events that have occurred on this serial port since the last time this function was called
     /// \return Combination of Event flags, or system error code if negative
     int events() noexcept;
 

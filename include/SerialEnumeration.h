@@ -31,7 +31,7 @@ enum SerialBusType
 struct SerialDeviceInfo
 {
   /// Logical device path (e.g. interface)
-  const char* lpath;
+  const char* id;
   /// Physical device path
   const char* path;
   /// Device name
@@ -46,7 +46,6 @@ struct SerialDeviceInfo
   unsigned short pid;
   /// Type of bus device is connected to
   SerialBusType type;
-
 };
 
 #ifdef __cplusplus 
@@ -58,21 +57,31 @@ extern "C" {
 #endif
 
   /// Start enumerating devices
-  /// \returns Status/error code of system_category type
+  /// \return Status/error code of system_category type
   /// \remarks Always call SerialEnum_Finish after this function to free resources allocated
   DECLSPEC int SerialEnum_StartEnumeration(unsigned int typeMask);
 
   /// Gets info for next device
   /// \param[out] info Pointer to info struct to receive device info
-  /// \returns Status/error code of system_category type
+  /// \return Status/error code of system_category type
   /// \remark Strings remain valid only until another SerialEnum function is called, so they should be copied
   DECLSPEC int SerialEnum_Next(SerialDeviceInfo* info);
+
+  /// \brief Gets info for specified device
+  /// \param[out] info Pointer to info struct to receive device info
+  /// \param[in] id Pointer to device id string.
+  ///               On Windows, this should be a null-terminated WCHAR* string with a device interface path.
+  ///               On Linux it should be null-terminated char* sysfs path to the device
+  /// \return Status/error code of system_category type
+  /// \remark Should be called after after SerialEnum_StartEnumeration() and before SerialEnum_Finish(). All strings
+  DECLSPEC int SerialEnum_GetDeviceInfo(SerialDeviceInfo* info, const void* id);
 
   /// Finish enumeration, freeing all associated resources
   DECLSPEC void SerialEnum_Finish();
 
   /// Get String describing SerialBusType
   DECLSPEC const char* SerialBusType_to_cstring(SerialBusType type);
+
 
 #ifdef __cplusplus 
 }
