@@ -4,7 +4,7 @@
 #include <crtdbg.h>
 #endif
 
-#include "SerialEnumeration.h"
+#include "SerialEnumeration.hpp"
 
 #include <chrono>
 #include <iostream>

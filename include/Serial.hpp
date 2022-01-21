@@ -1,22 +1,10 @@
 #pragma once
 
-#if defined(_WIN32)
-#  if defined(EXPORTING_SERIAL)
-#    define DECLSPEC __declspec(dllexport)
-#  elif defined(SERIAL_STATIC)
-#    define DECLSPEC
-#  else
-#    define DECLSPEC __declspec(dllimport)
-#  endif
-#else // non windows
-#  define DECLSPEC [[gnu::visibility("default")]]
-#endif
-
 #ifndef WIN32
 #include <termios.h>
 #endif
 
-#include <cerrno>
+#include <system_error>
 
 namespace Serial
 {
@@ -66,7 +54,7 @@ namespace Serial
     Break       = 0x10
   };
 
-  struct DECLSPEC Device
+  struct Device
   {
     /// Default constructor
     Device() noexcept;
@@ -157,7 +145,7 @@ namespace Serial
       {
         int s = _readFrom.read(&_data[_status], _desiredSize-_status);
         if(s < 0) return s;
-        else if(s == 0) return -ETIMEDOUT;
+        else if(s == 0) return -static_cast<int>(std::errc::timed_out);
         else _status += s;
         
         if(_status < _desiredSize) return 0;

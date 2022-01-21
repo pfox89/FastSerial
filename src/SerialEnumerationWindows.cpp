@@ -12,7 +12,8 @@
 
 #include <Cfgmgr32.h>
 
-#include "SerialEnumeration.h"
+#include "SerialEnumeration.hpp"
+
 
 namespace {
 #pragma warning( push )
@@ -63,7 +64,7 @@ namespace {
   using string_buffer_ptr = std::unique_ptr<inline_str<>>;
   using wstring_buffer_ptr = std::unique_ptr<inline_str<wchar_t>>;
 
-struct EnumData
+struct SerialEnumImpl
 {
   /// \brief Initialize enumeration. This function must be called after constructor or deinit() before calling any other functions
   /// \param hHeap Heap to use for allocating memory
@@ -107,17 +108,17 @@ struct EnumData
     return ERROR_SUCCESS;
   }
 
-  int lookup(SerialDeviceInfo& info, const void* id) noexcept
+  int lookup(Serial::DeviceInfo& info, const void* id) noexcept
   {
     auto temp = _typeMask;
-    _typeMask = static_cast<unsigned>(SerialBusType::BUS_ANY);
+    _typeMask = static_cast<unsigned>(Serial::BusType::BUS_ANY);
     int status = getInfo(info, static_cast<const WCHAR*>(id));
     _typeMask = temp;
 
     return status;
   }
 
-  int getInfo(SerialDeviceInfo& info, const WCHAR* interfaceId) noexcept
+  int getInfo(Serial::DeviceInfo& info, const WCHAR* interfaceId) noexcept
   {
     _currentDeviceIdLen = sizeof(_currentDeviceId);
     DEVPROPTYPE property_type;
@@ -147,14 +148,14 @@ struct EnumData
     DWORD dwSize = 0;
     info.vid = 0;
     info.pid = 0;
-    info.type = SerialBusType::BUS_UNKNOWN;
+    info.type = Serial::BusType::BUS_UNKNOWN;
 
     DEVINST parent;
 
     info.type = getBusType();
 
     // If this isn't on a PCI or USB root, it may be a virtual device referencing a base physical device, so find its parent id
-    if (info.type == SerialBusType::BUS_UNKNOWN)
+    if (info.type == Serial::BusType::BUS_UNKNOWN)
     {
       cr = CM_Get_Parent(&parent, _device, 0);
       if (cr == CR_SUCCESS)
@@ -168,9 +169,9 @@ struct EnumData
       parent = _device;
     }
 
-    if (info.type == SerialBusType::BUS_USB)
+    if (info.type == Serial::BusType::BUS_USB)
     {
-      if (0 == (_typeMask & static_cast<unsigned>(SerialBusType::BUS_USB)))
+      if (0 == (_typeMask & static_cast<unsigned>(Serial::BusType::BUS_USB)))
         return ERROR_RETRY;
 
       const wchar_t* pos = wcsstr(&_currentDeviceId[3], L"VID_");
@@ -190,10 +191,10 @@ struct EnumData
       //info.path = get_path(parent, L"USBROOT", sizeof(L"USBROOT") / sizeof(wchar_t), L"USB", sizeof(L"USB") / sizeof(wchar_t));
 
     }
-    else if (info.type == SerialBusType::BUS_PCI)
+    else if (info.type == Serial::BusType::BUS_PCI)
     {
 
-      if (0 == (_typeMask & static_cast<unsigned>(SerialBusType::BUS_PCI)))
+      if (0 == (_typeMask & static_cast<unsigned>(Serial::BusType::BUS_PCI)))
         return ERROR_RETRY;
 
       const wchar_t* pos = wcsstr(&_currentDeviceId[3], L"VEN_");
@@ -216,7 +217,7 @@ struct EnumData
     else
     {
       // Unknown type, only include on BUS_ANY
-      if (_typeMask != static_cast<unsigned>(SerialBusType::BUS_ANY))
+      if (_typeMask != static_cast<unsigned>(Serial::BusType::BUS_ANY))
         return ERROR_RETRY;
     }
 
@@ -238,7 +239,7 @@ struct EnumData
   /// \brief Get info for next device in list
   /// \param info reference to struct to store info strings
   /// \return system_error code, or -1 if there are no further devices
-  int next(SerialDeviceInfo& info) noexcept
+  int next(Serial::DeviceInfo& info) noexcept
   {
     if (!_deviceInterfaceList) return ERROR_INVALID_HANDLE;
     int status;
@@ -373,13 +374,13 @@ private:
   
   /// \brief Get bus type of currently selected device
   /// \return Bus type enumeration
-  SerialBusType getBusType() noexcept
+  Serial::BusType getBusType() noexcept
   {
     if (wcsncmp(_currentDeviceId, L"USB", 3) == 0)
-      return SerialBusType::BUS_USB;
+      return Serial::BusType::BUS_USB;
     else if (wcsncmp(_currentDeviceId, L"PCI", 3) == 0)
-      return SerialBusType::BUS_PCI;
-    else return SerialBusType::BUS_UNKNOWN;
+      return Serial::BusType::BUS_PCI;
+    else return Serial::BusType::BUS_UNKNOWN;
   }
 
   /// \brief Reserve space in internal wide-character buffer used to translate from Windows UCS2 APIs. This does not preserve contents for this temporary buffer
@@ -523,44 +524,39 @@ private:
     return cr;
   }
 }; // End class EnumData
-
-/// Thread local managed pointer to store state of queries
-thread_local std::unique_ptr<EnumData> s_data;
-
 } // end unnamed namespace
 
-#if defined(EXPORTING_SERIALENUM)
-#  define DECLSPEC __declspec(dllexport)
-#else
-#  define DECLSPEC
-#endif
-
-extern "C"
+namespace Serial
 {
-  DECLSPEC int SerialEnum_StartEnumeration(unsigned int typeMask)
+  Enum::Enum() noexcept
+    : _impl(new SerialEnumImpl())
+  {}
+
+  int Enum::getInfoFor(DeviceInfo& info, const void* id) noexcept
   {
-    if (!s_data) s_data = std::make_unique<EnumData>();
-    if (!s_data) return ERROR_NOT_ENOUGH_MEMORY;
-    return s_data->init(typeMask);
+    if (_impl == nullptr) return ERROR_INVALID_HANDLE;
+    return _impl->getInfo(info, static_cast<const WCHAR*>(id));
   }
 
-  DECLSPEC int SerialEnum_Next(SerialDeviceInfo* info)
+  int Enum::begin(unsigned int type_mask) noexcept
   {
-    if (!s_data) return ERROR_INVALID_HANDLE;
-    if (info == nullptr) return ERROR_BAD_ARGUMENTS;
-
-    return s_data->next(*info);
+    if (_impl == nullptr) return ERROR_INVALID_HANDLE;
+    return _impl->init(type_mask);
   }
 
-  DECLSPEC int SerialEnum_GetDeviceInfo(SerialDeviceInfo* info, const void* id)
+  int Enum::next(DeviceInfo& info) noexcept
   {
-    if (!s_data) return ERROR_INVALID_HANDLE;
-    if (info == nullptr || id == nullptr) return ERROR_BAD_ARGUMENTS;
-    return s_data->lookup(*info, id);
+    if (_impl == nullptr) return ERROR_INVALID_HANDLE;
+    return _impl->next(info);
   }
 
-  DECLSPEC void SerialEnum_Finish()
+  Enum::~Enum() noexcept
   {
-    s_data.reset();
+    if (_impl != nullptr)
+    {
+      delete _impl;
+      _impl = nullptr;
+    }
   }
 }
+
