@@ -1,4 +1,10 @@
-﻿#include <memory>
+﻿#ifndef NDEBUG
+#define _CRTDBG_MAP_ALLOC
+#include <stdlib.h>
+#include <crtdbg.h>
+#endif
+
+#include <memory>
 
 #include <comdef.h>
 #include <initguid.h> // include before devpkey
@@ -8,95 +14,80 @@
 
 #include "SerialEnumeration.h"
 
-/// @brief 
-/// @tparam T 
-template<class T>
-struct process_heap_deleter {
-  void operator()(T* ptr) { HeapFree(GetProcessHeap(), 0, ptr); };
-};
-
-template<typename T>
-using process_heap_ptr = std::unique_ptr <T, process_heap_deleter<T>>;
-
+namespace {
 #pragma warning( push )
 #pragma warning( disable : 4200 )
-template<class char_type=char>
-struct inline_str
-{
-  unsigned short capacity;
-  unsigned short size;
-  char_type data[];
-};
+  template<class char_type = char>
+  struct inline_str
+  {
+    unsigned short size;
+    unsigned short capacity;
+    char_type data[];
+  };
 #pragma warning( pop )
 
-template<class char_type=char>
-static process_heap_ptr<inline_str<char_type>> make_inline_str(size_t size) noexcept
-{
-  using str_type = inline_str<char_type>;
-  if (size <= USHRT_MAX)
+  static std::unique_ptr<inline_str<char>> make_inline_str(size_t size) noexcept
   {
-    void* mem = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, size + offsetof(str_type, data));
-    if (mem != nullptr)
+    using str_type = inline_str<char>;
+    if (size <= USHRT_MAX)
     {
-      str_type* p = reinterpret_cast<str_type*>(mem);
-      p->capacity = static_cast<unsigned short>(size);
-      p->size = 0;
-      return process_heap_ptr<str_type>(p);
+      void* mem = calloc(size / sizeof(unsigned short) + offsetof(str_type, data), sizeof(unsigned short));
+      if (mem != nullptr)
+      {
+        str_type* p = reinterpret_cast<str_type*>(mem);
+        p->capacity = static_cast<unsigned short>(size);
+        p->size = 0;
+        return std::unique_ptr<str_type>(p);
+      }
     }
+    return std::unique_ptr<str_type>();
   }
-  return process_heap_ptr<str_type>();
-}
 
-template<class char_type=char>
-static bool resize_inline_str(process_heap_ptr<inline_str<char_type>>& str, size_t size) noexcept
-{
-  using str_type = inline_str<char_type>;
-  unsigned short oldsize = str->size;
-  if (size <= USHRT_MAX)
+  static std::unique_ptr<inline_str<wchar_t>> make_inline_wstr(size_t size) noexcept
   {
-    void* mem = HeapReAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, str.get(), size + offsetof(str_type, data));
-    if (mem != nullptr)
+    using str_type = inline_str<wchar_t>;
+    if (size <= USHRT_MAX)
     {
-      str_type* p = reinterpret_cast<str_type*> (mem);
-      p->capacity = static_cast<unsigned short>(size);
-      p->size = oldsize;
-      str.release();
-      str = process_heap_ptr<inline_str<char_type>>(p);
-      return true;
+      void* mem = calloc(size / sizeof(unsigned short) + offsetof(str_type, data), sizeof(unsigned short));
+      if (mem != nullptr)
+      {
+        str_type* p = static_cast<str_type*>(mem);
+        p->capacity = static_cast<unsigned short>(size);
+        p->size = 0;
+        return std::unique_ptr<str_type>(p);
+      }
     }
+    return std::unique_ptr<str_type>();
   }
-  return false;
-}
 
-using string_buffer_ptr = process_heap_ptr<inline_str<>>;
-using wstring_buffer_ptr = process_heap_ptr<inline_str<wchar_t>>;
+  using string_buffer_ptr = std::unique_ptr<inline_str<>>;
+  using wstring_buffer_ptr = std::unique_ptr<inline_str<wchar_t>>;
 
 struct EnumData
 {
-  HANDLE heap() const noexcept { return _hHeap; }
-
   /// \brief Initialize enumeration. This function must be called after constructor or deinit() before calling any other functions
   /// \param hHeap Heap to use for allocating memory
   /// \return system_error code
-  int init(HANDLE hHeap, unsigned int typeMask) noexcept
+  int init(unsigned int typeMask) noexcept
   {
-    _hHeap = hHeap;
     _typeMask = typeMask;
 
     CONFIGRET cr;
     do {
+      // Query size required for device interface list
       ULONG list_size;
       cr = CM_Get_Device_Interface_List_SizeW(&list_size, const_cast<LPGUID>(&GUID_DEVINTERFACE_COMPORT), NULL, CM_GET_DEVICE_INTERFACE_LIST_PRESENT);
    
       if (cr != CR_SUCCESS) break;
 
-      _deviceInterfaceList.reset();
-      _deviceInterfaceList = make_inline_str<wchar_t>(list_size * sizeof(WCHAR));
+      // Allocate memory for device interface list
+      _deviceInterfaceList = make_inline_wstr(list_size * sizeof(WCHAR));
       if (false == _deviceInterfaceList)
       {
         return ERROR_NOT_ENOUGH_MEMORY;
       }
 
+      // Retrieve device interface list
       cr = CM_Get_Device_Interface_ListW(const_cast<LPGUID>(&GUID_DEVINTERFACE_COMPORT),
         NULL,
         _deviceInterfaceList->data,
@@ -109,7 +100,7 @@ struct EnumData
     _currentInterface = _deviceInterfaceList->data;
 
     // Preallocate some memory for buffers
-    _wbuf = make_inline_str<wchar_t>(500);
+    _wbuf = make_inline_wstr(500);
     _strbuf = make_inline_str(500);
 
     if (cr != CR_SUCCESS) return CM_MapCrToWin32Err(cr, ERROR_NOT_SUPPORTED);
@@ -268,7 +259,6 @@ struct EnumData
 
 private:
 
-  HANDLE   _hHeap;
   unsigned _typeMask;
   const WCHAR* _currentInterface;
   DWORD    _currentInterfaceSize;
@@ -279,7 +269,7 @@ private:
 
   wstring_buffer_ptr _deviceInterfaceList;
   wstring_buffer_ptr _wbuf;
-  string_buffer_ptr _strbuf;
+  string_buffer_ptr  _strbuf;
 
   const char* parse_path() noexcept
   {
@@ -400,7 +390,7 @@ private:
     if (size > _wbuf->capacity)
     {
       _wbuf.reset();
-      _wbuf = make_inline_str<wchar_t>(size);
+      _wbuf = make_inline_wstr(size);
       if (false == _wbuf) return false;
       _wbuf->size = static_cast<unsigned short>(size);
     }
@@ -427,7 +417,22 @@ private:
     auto newsize = (capacity * 3) / 2;
     if (newsize - remain < amount) newsize += static_cast<ULONG>(amount);
    
-    return resize_inline_str(_strbuf, newsize);
+    // Expand string size with realloc
+    unsigned short oldsize = _strbuf->size;
+    if (size <= USHRT_MAX)
+    {
+      void* mem = realloc(_strbuf.get(), size + offsetof(inline_str<char>, data));
+      if (mem != nullptr)
+      {
+        inline_str<char>* p = static_cast<inline_str<char>*> (mem);
+        p->capacity = static_cast<unsigned short>(size);
+        p->size = oldsize;
+        _strbuf.release();
+        _strbuf = std::unique_ptr<inline_str<char>>(p);
+        return true;
+      }
+    }
+    return false;
   }
 
   /// \brief Copy internal wide string buffer to string buffer and return pointer
@@ -517,77 +522,12 @@ private:
 
     return cr;
   }
-};
-
-/// Manages pointer to enumeration object to minimize memory consumption when not in use
-struct EnumDataPtr
-{
-  EnumData* ptr;
-
-  EnumDataPtr() noexcept = default;
-  EnumDataPtr(EnumDataPtr& other) noexcept = delete;
-
-  int alloc(HANDLE hHeap) noexcept
-  {
-    if (ptr == nullptr)
-      ptr = reinterpret_cast<EnumData*>(HeapAlloc(hHeap, 0, sizeof(EnumData)));
-    else
-    {
-      // Call destructor to free managed resources
-      ptr->~EnumData();
-    }
-
-    if (ptr == nullptr)
-    {
-      return ERROR_NOT_ENOUGH_MEMORY;
-    }
-    else
-    {
-      // Placement new to initialize object
-      ptr = new (ptr) EnumData();
-    }
-    return 0;
-  }
-
-  /// \brief Allocate memory and initialize enumeration
-  /// \return system_error code
-  int init(unsigned int typeMask) noexcept
-  {
-    HANDLE hHeap = GetProcessHeap();
-
-    int err = alloc(hHeap);
-    if(err == 0)
-    {
-      err = ptr->init(hHeap, typeMask);
-
-      // If we ran out of memory, free all resources
-      if (err == ERROR_NOT_ENOUGH_MEMORY) reset();
-    }
-    return err;
-  }
-
-  /// \brief Deinitialize and free resources
-  void reset() noexcept
-  {
-    if (ptr != nullptr)
-    {
-      HANDLE heap = ptr->heap();
-      // Call destructor to free managed resources
-      ptr->~EnumData();
-      HeapFree(heap, 0, ptr);
-      ptr = nullptr;
-    }
-  }
-
-  /// Destructor deinitializes all resources
-  ~EnumDataPtr() noexcept
-  {
-    reset();
-  }
-};
+}; // End class EnumData
 
 /// Thread local managed pointer to store state of queries
-thread_local EnumDataPtr s_data;
+thread_local std::unique_ptr<EnumData> s_data;
+
+} // end unnamed namespace
 
 #if defined(EXPORTING_SERIALENUM)
 #  define DECLSPEC __declspec(dllexport)
@@ -599,24 +539,25 @@ extern "C"
 {
   DECLSPEC int SerialEnum_StartEnumeration(unsigned int typeMask)
   {
-    return s_data.init(typeMask);
+    if (!s_data) s_data = std::make_unique<EnumData>();
+    if (!s_data) return ERROR_NOT_ENOUGH_MEMORY;
+    return s_data->init(typeMask);
   }
 
   DECLSPEC int SerialEnum_Next(SerialDeviceInfo* info)
   {
-    if (s_data.ptr == nullptr) return ERROR_INVALID_HANDLE;
+    if (!s_data) return ERROR_INVALID_HANDLE;
     if (info == nullptr) return ERROR_BAD_ARGUMENTS;
 
-    return s_data.ptr->next(*info);
+    return s_data->next(*info);
   }
 
   DECLSPEC int SerialEnum_GetDeviceInfo(SerialDeviceInfo* info, const void* id)
   {
-    if (s_data.ptr == nullptr) return ERROR_INVALID_HANDLE;
+    if (!s_data) return ERROR_INVALID_HANDLE;
     if (info == nullptr || id == nullptr) return ERROR_BAD_ARGUMENTS;
-    return s_data.ptr->lookup(*info, id);
+    return s_data->lookup(*info, id);
   }
-
 
   DECLSPEC void SerialEnum_Finish()
   {

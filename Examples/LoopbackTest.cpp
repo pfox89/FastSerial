@@ -1,3 +1,9 @@
+#if defined(WIN32) && !defined(NDEBUG)
+#define _CRTDBG_MAP_ALLOC
+#include <stdlib.h>
+#include <crtdbg.h>
+#endif
+
 #include <iostream>
 #include <chrono>
 #include <cstring>
@@ -175,5 +181,9 @@ int main(int argc, char** argv)
     return -6;
   }
   std::cout << "OK" << std::endl;
+#if defined(WIN32) && !defined(NDEBUG)
+  return _CrtDumpMemoryLeaks();
+#else
   return 0;
+#endif
 }

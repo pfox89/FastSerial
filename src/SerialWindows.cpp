@@ -1,3 +1,9 @@
+#ifndef NDEBUG
+#define _CRTDBG_MAP_ALLOC
+#include <stdlib.h>
+#include <crtdbg.h>
+#endif
+
 #include "Serial.hpp"
 
 #define WIN32_LEAN_AND_MEAN
@@ -138,55 +144,6 @@ namespace Serial
     _errors |= errors;
     return status.cbOutQue;
   }
-
-  /*
-  int Device::poll(unsigned int timeout) noexcept
-  {
-    if (false == ClearCommError(_hPort, &_errors, &_status)) return GetLastError();
-
-    if (_status.cbInQue == 0 && timeout > 0)
-    {
-      if (WaitCommEvent(_hPort, &_events, &_eventOverlapped))
-      {
-        return _events;
-      }
-      else
-      {
-        DWORD error = GetLastError();
-        if (error == ERROR_IO_PENDING)
-        {
-          DWORD dummy;
-          if (GetOverlappedResultEx(_hPort, &_eventOverlapped, &dummy, timeout, false))
-          {
-            return _events;
-          }
-          else
-          {
-            // calling SetCommMask forces WaitCommEvent() to cancel
-            SetCommMask(_hPort, event_mask);
-            // Update status to ensure we didn't miss anything between the wait and cancellation
-            ClearCommError(_hPort, &_errors, &_status);
-          }
-        }
-        else
-        {
-          return error;
-        }
-      }
-    }
-
-    if (_status.cbInQue != 0)
-    {
-      _events |= EV_RXCHAR;
-    }
-    if (_status.cbOutQue == 0)
-    {
-      _events |= EV_TXEMPTY;
-    }
-
-    return _events;
-  }
-  */
 
   int Device::events() noexcept
   {

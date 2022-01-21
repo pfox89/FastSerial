@@ -27,6 +27,7 @@ namespace Serial
   typedef int HANDLE;
 #endif
 
+  /// Describes which buffers should be purged
   enum class Purge
   {
 #ifdef WIN32
@@ -40,6 +41,7 @@ namespace Serial
 #endif
   };
 
+  /// \brief Describes parity scheme to be used by serial device
   enum class Parity
   {
     None  = 0,
@@ -47,12 +49,14 @@ namespace Serial
     Odd   = 1
   };
 
+  /// \brief Describes number of stop bits to be used for serial communication
   enum class Stop
   {
     OneBit  = 0,
     TwoBits = 2
   };
 
+  /// \brief Bits for describing events that occurred
   enum class Event
   {
     Overflow    = 0x1,
@@ -123,7 +127,6 @@ namespace Serial
 
     /// brief Get native handle to serial port
     HANDLE native() noexcept { return _hPort; }
-
 
   private:
     HANDLE        _hPort;

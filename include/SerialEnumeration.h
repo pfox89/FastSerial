@@ -13,6 +13,7 @@
 #endif
 
 #ifdef __cplusplus 
+
 /// Possible types of bus this device can be connected to
 enum class SerialBusType
 #else
@@ -82,7 +83,6 @@ extern "C" {
   /// Get String describing SerialBusType
   DECLSPEC const char* SerialBusType_to_cstring(SerialBusType type);
 
-
 #ifdef __cplusplus 
 }
 
@@ -109,6 +109,12 @@ inline std::string to_string(SerialBusType type) noexcept
 
 #ifdef __cplusplus
 
+#ifdef __cpp_exceptions
+#include <stdexcept>
+#endif
+
+#include <system_error>
+
 namespace Serial
 {
 
@@ -116,7 +122,7 @@ namespace Serial
   struct PortIter
   {
     // Create iterator over ports using type mask
-    PortIter(uint32_t typeMask) noexcept
+    PortIter(unsigned typeMask) noexcept
       : _status(SerialEnum_StartEnumeration(typeMask)), _info{}
     {
       // Populate info immediately
@@ -125,7 +131,7 @@ namespace Serial
 
     /// Passing an int constructs an dummy "end" iterator by setting status to invalid value
     PortIter(int) noexcept
-      : _status(INT32_MAX), _info{}
+      : _status(INT_MAX), _info{}
     {}
 
     /// Don't allow copying iterator, ownership must be retained
@@ -135,7 +141,7 @@ namespace Serial
     PortIter(PortIter&& other) noexcept
       : _status(other._status), _info(other._info)
     {
-      other._status = INT32_MAX;
+      other._status = INT_MAX;
     }
 
     /// Incrementing iterator gets next device
@@ -149,6 +155,19 @@ namespace Serial
       return *this;
     }
 
+#ifdef __cpp_exceptions
+    const SerialDeviceInfo& operator*() const
+    {
+      if (_status != 0) throw_error();
+      return _info;
+    }
+
+    const SerialDeviceInfo* operator->() const
+    {
+      if (_status != 0) throw_error();
+      return &_info;
+    }
+#else
     const SerialDeviceInfo& operator*() const noexcept
     {
       return _info;
@@ -158,10 +177,16 @@ namespace Serial
     {
       return &_info;
     }
+#endif
 
     bool operator!=(const PortIter&) const noexcept
     {
       return (_status == 0);
+    }
+
+    std::error_code error() const noexcept
+    {
+      return std::error_code(_status < 0 ? 0 : _status, std::system_category());
     }
 
     /// Destructor frees resources
@@ -171,9 +196,16 @@ namespace Serial
         SerialEnum_Finish();
     }
   private:  
-    int32_t          _status;
+    int              _status;
     SerialDeviceInfo _info;
 
+#ifdef __cpp_exceptions
+    void throw_error() const
+    {
+      if (_status > 0) throw std::system_error(error());
+      else if (_status < 0) throw std::out_of_range("Serial::PortIter");
+    }
+#endif
   };
 
   /// Constexpr range template to allow enumerator to be used as a range
