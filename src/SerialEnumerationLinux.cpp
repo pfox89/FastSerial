@@ -30,10 +30,10 @@ struct SerialEnumImpl
     _typeMask = type;
 
     _udev = udev_ptr(udev_new());
-    if (_udev == nullptr) return errno;
+    if (_udev == nullptr) return -errno;
     _enumerate = udev_enumerate_ptr(udev_enumerate_new(_udev.get()));
-    if (_enumerate == nullptr) return errno;
-    if (udev_enumerate_add_match_subsystem(_enumerate.get(), "tty") < 0) return errno;
+    if (_enumerate == nullptr) return -errno;
+    if (udev_enumerate_add_match_subsystem(_enumerate.get(), "tty") < 0) return -errno;
     int stat;
     switch (static_cast<SerialBusType>(type))
     {
@@ -44,8 +44,8 @@ struct SerialEnumImpl
         stat = 0;
         break;
     }
-    if (stat < 0) return errno;
-    if (udev_enumerate_scan_devices(_enumerate.get()) < 0) return errno;
+    if (stat < 0) return -errno;
+    if (udev_enumerate_scan_devices(_enumerate.get()) < 0) return -errno;
 
     return 0;
   }
@@ -53,7 +53,7 @@ struct SerialEnumImpl
   int getInfo(SerialDeviceInfo& info, const char* path) noexcept
   {
     _dev = udev_device_ptr(udev_device_new_from_syspath(_udev.get(), info.id));
-    if (_dev == nullptr) return errno;
+    if (_dev == nullptr) return -errno;
 
     info.name       = udev_device_get_sysname(_dev.get());
     const char* bus = udev_device_get_property_value(_dev.get(), "ID_BUS");
@@ -76,7 +76,7 @@ struct SerialEnumImpl
       if ((parent = udev_device_get_parent_with_subsystem_devtype(_dev.get(), "pnp", nullptr)) != nullptr)
       {
         // Skip this device if we did not request PNP or any devices
-        if (0 == (_typeMask & static_cast<unsigned>(SerialBusType::BUS_PNP))) return EAGAIN;
+        if (0 == (_typeMask & static_cast<unsigned>(SerialBusType::BUS_PNP))) return 0;
 
         info.description = udev_device_get_sysattr_value(parent, "id");
         // Legacy PNP devices don't report friendly names, so add friendly name for known serial PNP devices
@@ -96,7 +96,7 @@ struct SerialEnumImpl
       else if ((parent = udev_device_get_parent_with_subsystem_devtype(_dev.get(), "platform", nullptr)) != nullptr)
       {
         // Skip this device if we did not request PNP or any devices
-        if (0 == (_typeMask & static_cast<unsigned>(SerialBusType::BUS_PLATFORM))) return EAGAIN;
+        if (0 == (_typeMask & static_cast<unsigned>(SerialBusType::BUS_PLATFORM))) return 0;
 
         info.description = udev_device_get_driver(parent);
         // The only info we can get for platform devices is the driver, so add friendly name for most common PC hardware
@@ -110,7 +110,7 @@ struct SerialEnumImpl
       }
       else
       {
-        if (_typeMask != static_cast<unsigned>(SerialBusType::BUS_ANY)) continue;
+        if (_typeMask != static_cast<unsigned>(SerialBusType::BUS_ANY)) return 0;
 
         info.description = nullptr;
         info.type        = SerialBusType::BUS_UNKNOWN;
@@ -121,7 +121,7 @@ struct SerialEnumImpl
     {
       if (0 == (_typeMask & static_cast<unsigned>(SerialBusType::BUS_USB)))
         // If we didn't ask for a USB device or any, skip this device
-        return EAGAIN;
+        return 0;
 
       info.description = udev_device_get_property_value(_dev.get(), "ID_MODEL_FROM_DATABASE");
       if (
@@ -141,7 +141,7 @@ struct SerialEnumImpl
     }
     else if (strncmp(bus, "pci", 3) == 0)
     {
-      if (0 == (_typeMask & static_cast<unsigned>(SerialBusType::BUS_PCI))) return EAGAIN;
+      if (0 == (_typeMask & static_cast<unsigned>(SerialBusType::BUS_PCI))) return 0;
 
       // domain:bus:slot.function
       udev_device* parent = udev_device_get_parent_with_subsystem_devtype(_dev.get(), "pci", nullptr);
@@ -154,10 +154,12 @@ struct SerialEnumImpl
     }
     else
     {
-      if (_typeMask != static_cast<unsigned>(SerialBusType::BUS_ANY)) return EAGAIN;
+      if (_typeMask != static_cast<unsigned>(SerialBusType::BUS_ANY)) return 0;
       info.description = nullptr;
       info.type        = SerialBusType::BUS_UNKNOWN;
     }
+
+    return 1;
   }
 
   int next(SerialDeviceInfo& info) noexcept
@@ -171,15 +173,16 @@ struct SerialEnumImpl
         {
           _devices = udev_list_entry_get_next(_devices);
         }
+        // If there are no more devices, return 0
+        if (_devices == nullptr) return 0;
 
-        if (_devices == nullptr) return -1;
         info.id = udev_list_entry_get_name(_devices);
-        if (info.id == nullptr) return errno;
+        if (info.id == nullptr) return -errno;
         // Skip virtual ttys
       } while (strncmp(info.id, virtual_path, sizeof(virtual_path) - 1) == 0);
 
       status = getInfo(info, info.id);
-    } while (status == EAGAIN);
+    } while (status == 0);
 
     return status;
   }
@@ -355,40 +358,39 @@ private:
 
 namespace Serial
 {
-struct Enum
+int Enum::getInfoFor(DeviceInfo& info, const void* id) noexcept
 {
-  Enum() noexcept
-    : _impl(new SerialEnumImpl())
-  {}
-
-  int getInfoFor(DeviceInfo& info, const void* id) noexcept
+  if (_impl == nullptr)
   {
-    if (_impl == nullptr) return static_cast<int>(std::errc::not_connected);
-    return _impl->getInfo(info, static_cast<const WCHAR*>(id));
+    _impl = new SerialEnumImpl();
+    if (_impl == nullptr) return -static_cast<int>(std::errc::not_enough_memory);
   }
+  return _impl->getInfo(info, static_cast<const char*>(id));
+}
 
-  int begin(unsigned int type_mask) noexcept
+int Enum::begin(unsigned int type_mask) noexcept
+{
+  if (_impl == nullptr)
   {
-    if (_impl == nullptr) return static_cast<int>(std::errc::not_connected);
-    return _impl->init(type_mask);
+    _impl = new SerialEnumImpl();
+    if (_impl == nullptr) return -static_cast<int>(std::errc::not_enough_memory);
   }
+  return _impl->init(type_mask);
+}
 
-  int next(DeviceInfo& info) noexcept
+int Enum::next(DeviceInfo& info) noexcept
+{
+  if (_impl == nullptr) return -static_cast<int>(std::errc::not_connected);
+  return _impl->next(info);
+}
+
+void Enum::clear() noexcept
+{
+  if (_impl != nullptr)
   {
-    if (_impl == nullptr) return static_cast<int>(std::errc::not_connected);
-    return _impl->next(info);
+    delete _impl;
+    _impl = nullptr;
   }
+}
 
-  ~Enum() noexcept
-  {
-    if (_impl != nullptr)
-    {
-      delete _impl;
-      _impl = nullptr;
-    }
-  }
-
-private:
-  SerialEnumImpl* _impl;
-};
 }

@@ -27,8 +27,17 @@ int main(int argc, char** argv)
 {
   if (argc < 3) { return pusage(argv[0]); }
 
-  unsigned long timeout = std::strtoul(argv[2], nullptr, 10);
-  if (timeout == 0) { return pusage(argv[0]); }
+  unsigned short timeout = 0;
+  {
+    unsigned long ultimeout = std::strtoul(argv[2], nullptr, 10);
+    if (ultimeout == 0) { return pusage(argv[0]); }
+    if (ultimeout > USHRT_MAX)
+    {
+      std::cerr << "Timeout " << ultimeout << " too long" << std::endl;
+      return -1;
+    }
+    timeout = static_cast<unsigned short>(ultimeout);
+  }
 
   // --- Open serial port ---
   Serial::Device dev;
@@ -42,7 +51,7 @@ int main(int argc, char** argv)
   std::cout << "Port open" << std::endl;
 
   // --- Configure baud rate, mode, data bits, stop bits, parity, and flow control ---
-  status = dev.configure(9600, 8, Serial::Stop::OneBit, Serial::Parity::None, false, timeout);
+  status = dev.configure(9600, 8, Serial::Device::Stop::OneBit, Serial::Device::Parity::None, false, timeout);
 
   if (status < 0)
   {
@@ -94,9 +103,9 @@ int main(int argc, char** argv)
     else
     {
       ms_int = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
-      if (ms_int > timeout + 50)
+      if (ms_int > static_cast<decltype(ms_int)>(timeout) + 50)
       {
-        std::cerr << "Took too long to time out! Expected " << timeout + 50 << "ms, took " << ms_int << "ms"
+        std::cerr << "Took too long to time out! Expected " << static_cast<decltype(ms_int)>(timeout) + 50 << "ms, took " << ms_int << "ms"
                   << std::endl;
         return -6;
       }

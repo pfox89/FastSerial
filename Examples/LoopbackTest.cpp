@@ -111,7 +111,7 @@ int main(int argc, char** argv)
   std::cout << "Port open" << std::endl;
 
   // --- Configure baud rate, mode, data bits, stop bits, parity, and flow control ---
-  status = dev.configure(9600, 8, Serial::Stop::OneBit, Serial::Parity::None, false, async ? 0 : sync_timeout);
+  status = dev.configure(9600, 8, Serial::Device::Stop::OneBit, Serial::Device::Parity::None, false, async ? 0 : sync_timeout);
 
   if (status < 0)
   {

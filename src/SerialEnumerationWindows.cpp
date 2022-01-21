@@ -86,7 +86,7 @@ struct SerialEnumImpl
 
       // Allocate memory for device interface list
       _deviceInterfaceList = make_inline_wstr(list_size * sizeof(WCHAR));
-      if (false == _deviceInterfaceList) { return ERROR_NOT_ENOUGH_MEMORY; }
+      if (false == _deviceInterfaceList) { return -ERROR_NOT_ENOUGH_MEMORY; }
 
       // Retrieve device interface list
       cr = CM_Get_Device_Interface_ListW(
@@ -105,7 +105,7 @@ struct SerialEnumImpl
     _wbuf   = make_inline_wstr(500);
     _strbuf = make_inline_str(500);
 
-    if (cr != CR_SUCCESS) return CM_MapCrToWin32Err(cr, ERROR_NOT_SUPPORTED);
+    if (cr != CR_SUCCESS) return -static_cast<int>(CM_MapCrToWin32Err(cr, ERROR_NOT_SUPPORTED));
     return ERROR_SUCCESS;
   }
 
@@ -128,7 +128,7 @@ struct SerialEnumImpl
 
     if (cr == CR_SUCCESS)
     {
-      if (property_type != DEVPROP_TYPE_STRING) return ERROR_DATATYPE_MISMATCH;
+      if (property_type != DEVPROP_TYPE_STRING) return -ERROR_DATATYPE_MISMATCH;
 
       cr = CM_Locate_DevNodeW(&_device, _currentDeviceId, CM_LOCATE_DEVNODE_NORMAL);
     }
@@ -136,7 +136,7 @@ struct SerialEnumImpl
     if (cr != CR_SUCCESS)
     {
       info = { 0 };
-      return CM_MapCrToWin32Err(cr, ERROR_NOT_SUPPORTED);
+      return -static_cast<int>(CM_MapCrToWin32Err(cr, ERROR_NOT_SUPPORTED));
     }
 
     info.id = copybuf(interfaceId, -1);
@@ -168,7 +168,7 @@ struct SerialEnumImpl
 
     if (info.type == Serial::BusType::BUS_USB)
     {
-      if (0 == (_typeMask & static_cast<unsigned>(Serial::BusType::BUS_USB))) return ERROR_RETRY;
+      if (0 == (_typeMask & static_cast<unsigned>(Serial::BusType::BUS_USB))) return 0;
 
       const wchar_t* pos = wcsstr(&_currentDeviceId[3], L"VID_");
       if (pos != nullptr)
@@ -188,7 +188,7 @@ struct SerialEnumImpl
     else if (info.type == Serial::BusType::BUS_PCI)
     {
 
-      if (0 == (_typeMask & static_cast<unsigned>(Serial::BusType::BUS_PCI))) return ERROR_RETRY;
+      if (0 == (_typeMask & static_cast<unsigned>(Serial::BusType::BUS_PCI))) return 0;
 
       const wchar_t* pos = wcsstr(&_currentDeviceId[3], L"VEN_");
       if (pos != nullptr)
@@ -208,22 +208,31 @@ struct SerialEnumImpl
     else
     {
       // Unknown type, only include on BUS_ANY
-      if (_typeMask != static_cast<unsigned>(Serial::BusType::BUS_ANY)) return ERROR_RETRY;
+      if (_typeMask != static_cast<unsigned>(Serial::BusType::BUS_ANY)) return 0;
     }
 
     cr = get_custom_device_property(L"PortName");
     if (cr == CR_SUCCESS) info.name = copybuf(_wbuf->data, _wbuf->size);
+    else
+      info.name = nullptr;
 
     cr = get_reg_property(_device, CM_DRP_MFG);
     if (cr == CR_SUCCESS) info.manufacturer = copybuf(_wbuf->data, _wbuf->size);
+    else
+      info.manufacturer = nullptr;
 
     cr = get_reg_property(_device, CM_DRP_FRIENDLYNAME);
     if (cr == CR_SUCCESS) info.description = copybuf(_wbuf->data, _wbuf->size);
+    else
+      info.description = nullptr;
 
-    cr        = get_reg_property(parent, CM_DRP_LOCATION_PATHS);
-    info.path = parse_path();
+    cr = get_reg_property(parent, CM_DRP_LOCATION_PATHS);
+    if (cr == CR_SUCCESS) info.path = parse_path();
+    else
+      info.path = nullptr;
 
-    return CM_MapCrToWin32Err(cr, ERROR_NOT_SUPPORTED);
+    // Got a device
+    return 1;
   }
 
   /// \brief Get info for next device in list
@@ -231,11 +240,14 @@ struct SerialEnumImpl
   /// \return system_error code, or -1 if there are no further devices
   int next(Serial::DeviceInfo& info) noexcept
   {
-    if (!_deviceInterfaceList) return ERROR_INVALID_HANDLE;
+    if (!_deviceInterfaceList) return -ERROR_INVALID_HANDLE;
     int status;
+    // Keep going if we get ERROR_RETRY
     do {
       _currentInterfaceSize = static_cast<DWORD>(wcsnlen_s(_currentInterface, _deviceInterfaceList->size));
-      if (_currentInterfaceSize == 0) return -1;
+
+      // If the size is 0, there are no more devices, return 0
+      if (_currentInterfaceSize == 0) return 0;
 
       status = getInfo(info, _currentInterface);
 
@@ -243,9 +255,9 @@ struct SerialEnumImpl
       _currentInterface = _currentInterface + nextOffset;
       _deviceInterfaceList->size -= nextOffset;
 
-    } while (status == ERROR_RETRY);
+    } while (status == 0);
 
-    return 0;
+    return status;
   }
 
 private:
@@ -506,29 +518,35 @@ private:
 
 namespace Serial
 {
-Enum::Enum() noexcept
-  : _impl(new SerialEnumImpl())
-{}
 
 int Enum::getInfoFor(DeviceInfo& info, const void* id) noexcept
 {
-  if (_impl == nullptr) return ERROR_INVALID_HANDLE;
+  if (_impl == nullptr)
+  {
+    _impl = new SerialEnumImpl();
+    if (_impl == nullptr) return -ERROR_OUTOFMEMORY;
+  }
   return _impl->getInfo(info, static_cast<const WCHAR*>(id));
 }
 
 int Enum::begin(unsigned int type_mask) noexcept
 {
-  if (_impl == nullptr) return ERROR_INVALID_HANDLE;
+  if (_impl == nullptr)
+  {
+    _impl = new SerialEnumImpl();
+    if (_impl == nullptr) return -ERROR_OUTOFMEMORY;
+  }
+
   return _impl->init(type_mask);
 }
 
 int Enum::next(DeviceInfo& info) noexcept
 {
-  if (_impl == nullptr) return ERROR_INVALID_HANDLE;
+  if (_impl == nullptr) return -ERROR_INVALID_HANDLE;
   return _impl->next(info);
 }
 
-Enum::~Enum() noexcept
+void Enum::clear() noexcept
 {
   if (_impl != nullptr)
   {
@@ -536,4 +554,5 @@ Enum::~Enum() noexcept
     _impl = nullptr;
   }
 }
+
 }

@@ -19,12 +19,14 @@ Device::Device() noexcept
   : _hPort(INVALID_HANDLE_VALUE)
   , _errors()
   , _events()
+  , _timeout()
 {}
 
 Device::Device(Device&& other) noexcept
   : _hPort(other._hPort)
   , _errors(other._errors)
   , _events(other._events)
+  , _timeout(other._timeout)
 {
   other._hPort = INVALID_HANDLE_VALUE;
 }
@@ -41,12 +43,12 @@ int Device::open(const char* port) noexcept
 }
 
 int Device::configure(
-  unsigned int  baudRate,
-  unsigned char dataBits,
-  Stop          stop,
-  Parity        parity,
-  bool          flowControl,
-  int           timeout) noexcept
+  unsigned int   baudRate,
+  unsigned char  dataBits,
+  Stop           stop,
+  Parity         parity,
+  bool           flowControl,
+  unsigned short timeout) noexcept
 {
   DCB dcb{
     sizeof(DCB),                                                                // DCBLength
@@ -107,7 +109,7 @@ int Device::configure(
   }
 
   if (false == SetCommTimeouts(_hPort, &co)) return -static_cast<int>(GetLastError());
-  return 0;
+  _timeout = timeout;
   return 0;
 }
 
@@ -127,6 +129,22 @@ int Device::read(void* data, unsigned count) noexcept
   DWORD read;
   if (false == ReadFile(_hPort, data, count, &read, nullptr)) { return -static_cast<int>(GetLastError()); }
   return read;
+}
+
+int Device::read(Frame& f) noexcept
+{
+  if (f.status < f.desired_size)
+  {
+    int s = read(&(f.data[f.status]), (f.desired_size - f.status));
+    if (s < 0) return s;
+    else if (s == 0)
+      f.wait_time = _timeout;
+    else
+      f.status += s;
+
+    if (f.status < f.desired_size) return 0;
+  }
+  return f.status;
 }
 
 int Device::receiveQueueLevel() noexcept

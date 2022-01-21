@@ -33,7 +33,7 @@ namespace Serial
     return 0;
   }
 
-  int Device::configure(unsigned int baudRate, unsigned char dataBits, Stop stop, Parity parity, bool flowControl, int timeout) noexcept
+  int Device::configure(unsigned int baudRate, unsigned char dataBits, Stop stop, Parity parity, bool flowControl, unsigned short timeout) noexcept
   {
     termios options;
     if(0 != tcgetattr(_hPort, &options))
@@ -255,6 +255,22 @@ namespace Serial
     if(ret < 0) return -errno;
 
     return ret;
+  }
+
+  int Device::read(Frame& f) noexcept
+  {
+    if (f.status < f.desired_size)
+    {
+      int s = read(&(f.data[f.status]), (f.desired_size - f.status));
+      if (s < 0) return s;
+      else if (s == 0)
+        f.wait_time += timeout;
+      else
+        f.status += s;
+
+      if (f.status < f.desired_size) return 0;
+    }
+    return f.status;
   }
 
   int  Device::receiveQueueLevel() noexcept

@@ -8,7 +8,7 @@ else()
 endif()
 
 # Add source to this project's executable.
-add_library(fastserial STATIC ${SERIALPP_SOURCES} )
+add_library(fastserial STATIC ${SERIALPP_SOURCES}  )
 target_include_directories(fastserial PUBLIC ${PROJECT_SOURCE_DIR}/include)
 
 if(WIN32)

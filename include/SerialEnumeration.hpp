@@ -47,13 +47,45 @@ struct DeviceInfo
   BusType type;
 };
 
+/// Serial Enumerator class, which manages resource associated with serial device enumeration
+/// In general, begin() must be called to initate enumeration, and next() called to get subsequent devices until it returns <= 0
 struct Enum
 {
-  Enum() noexcept;
+  Enum()            = default;
+  Enum(const Enum& other) = delete;
+  Enum(Enum&& other) noexcept
+  {
+    _impl       = other._impl;
+    other._impl = nullptr;
+  }
+
+  /// \brief Get info for given device ID
+  /// \param[out] info Reference of struct to store info of device
+  /// \param[in]  id   ID of device. This will be a utf-8 encoded syspath on Linux, or a Windows device ID encoded as LPWSTR
+  /// \return == 0 No device found
+  ///          > 0 Device info retrieved successfully
+  ///          < 0 Error occurred, std::error_code(-return, system_category()) for details.
   int getInfoFor(DeviceInfo& info, const void* id) noexcept;
-  int begin(unsigned int type_mask) noexcept;
+
+  /// \brief Start enumerating devices of given types
+  /// \param type_mask Bitwise combination of any BusType values defining what kind of devices to include
+  /// \return == 0 Successful
+  ///          < 0 Error occurred, std::error_code(-return, system_category()) for details.
+  int begin(unsigned int type_mask=static_cast<unsigned int>(BusType::BUS_ANY)) noexcept;
+
+  /// \brief Get info for next device in enumeration
+  /// \param[out] info Reference of struct to store info of device
+  /// \return == 0 No more devices found
+  ///          > 0 Device info retrieved successfully
+  ///          < 0 Error occurred, std::error_code(-return, system_category()) for details.
+  /// \note All strings are bound to the current enumeration state, so strings in DeviceInfo 
+  ///       should be copied before calling any other member functions if they will be needed later.
   int next(DeviceInfo& info) noexcept;
-  ~Enum() noexcept;
+
+  /// Free all resources associated with enumeration. This will invalidate DeviceInfo strings.
+  void clear() noexcept;
+
+  ~Enum() noexcept { clear(); }
 
 private:
   SerialEnumImpl* _impl;
@@ -83,7 +115,8 @@ struct PortIter
 
   /// Passing an int constructs an dummy "end" iterator by setting status to invalid value
   PortIter(int) noexcept
-    : _status(INT_MAX)
+    : _enum()
+    , _status(INT_MAX)
     , _info{}
   {}
 
@@ -92,7 +125,8 @@ struct PortIter
 
   /// Move iterator takes ownership
   PortIter(PortIter&& other) noexcept
-    : _status(other._status)
+    :  _enum(std::move(other._enum))
+     , _status(other._status)
     , _info(other._info)
   {
     other._status = INT_MAX;
@@ -101,7 +135,7 @@ struct PortIter
   /// Incrementing iterator gets next device
   PortIter& operator++() noexcept
   {
-    if (_status == 0) { _status = _enum.next(_info); }
+    if (_status <= 1) { _status = _enum.next(_info); }
 
     return *this;
   }
@@ -109,13 +143,13 @@ struct PortIter
 #ifdef __cpp_exceptions
   const DeviceInfo& operator*() const
   {
-    if (_status != 0) throw_error();
+    if (_status <= 0) throw_error();
     return _info;
   }
 
   const DeviceInfo* operator->() const
   {
-    if (_status != 0) throw_error();
+    if (_status <= 0) throw_error();
     return &_info;
   }
 #else
@@ -124,9 +158,9 @@ struct PortIter
   const SerialDeviceInfo* operator->() const noexcept { return &_info; }
 #endif
 
-  bool operator!=(const PortIter&) const noexcept { return (_status == 0); }
+  bool operator!=(const PortIter&) const noexcept { return (_status > 0); }
 
-  std::error_code error() const noexcept { return std::error_code(_status < 0 ? 0 : _status, std::system_category()); }
+  std::error_code error() const noexcept { return std::error_code(_status < 0 ? -_status : 0, std::system_category()); }
 
 private:
   Enum       _enum;
