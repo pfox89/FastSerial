@@ -1,0 +1,52 @@
+﻿BasedOnStyle: Mozilla
+
+ColumnLimit: 120
+CompactNamespaces: true
+ContinuationIndentWidth: 2
+IndentWidth: 2
+AccessModifierOffset: -2
+Language: Cpp
+NamespaceIndentation: Inner
+PointerAlignment: Left
+ReflowComments: true
+Standard: Cpp11
+UseTab: Never
+
+SpaceAfterCStyleCast: true
+
+AlignConsecutiveMacros: true
+AlignConsecutiveAssignments: true
+AlignConsecutiveDeclarations: true
+AlignEscapedNewlines: Left
+AlignOperands: true
+AlignTrailingComments: true
+AllowAllArgumentsOnNextLine: true
+AllowAllConstructorInitializersOnNextLine: true
+AllowAllParametersOfDeclarationOnNextLine: false
+AllowShortBlocksOnASingleLine: true
+AllowShortCaseLabelsOnASingleLine: true
+AllowShortFunctionsOnASingleLine: All
+AllowShortIfStatementsOnASingleLine: Always
+AllowShortLambdasOnASingleLine: All
+AllowShortLoopsOnASingleLine: true
+AlignAfterOpenBracket: AlwaysBreak
+
+BinPackArguments: false
+BinPackParameters: false
+
+AlwaysBreakAfterDefinitionReturnType: None
+AlwaysBreakAfterReturnType: None
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterNamespace: true
+  AfterEnum: true
+  AfterStruct: true
+  AfterClass: true
+  SplitEmptyFunction: false
+  AfterControlStatement: true
+  AfterFunction: true
+  AfterUnion: true
+  BeforeElse: true
+
+
+

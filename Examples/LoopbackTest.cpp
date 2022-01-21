@@ -1,25 +1,25 @@
 #if defined(WIN32) && !defined(NDEBUG)
 #define _CRTDBG_MAP_ALLOC
-#include <stdlib.h>
 #include <crtdbg.h>
+#include <stdlib.h>
 #endif
 
-#include <iostream>
 #include <chrono>
 #include <cstring>
+#include <iostream>
 
 using std::chrono::steady_clock;
 
 #include "Serial.hpp"
 
-static const char testpattern[] = "TestPattern";
-static char buffer[sizeof(testpattern)] = { 0 };
+static const char testpattern[]               = "TestPattern";
+static char       buffer[sizeof(testpattern)] = { 0 };
 
 static Serial::Device dev;
 
-typedef steady_clock::rep      TimeRep;
-typedef steady_clock::duration Duration;
-typedef steady_clock Clock;
+typedef steady_clock::rep                        TimeRep;
+typedef steady_clock::duration                   Duration;
+typedef steady_clock                             Clock;
 typedef std::chrono::time_point<Clock, Duration> TimePoint;
 
 static auto get_ms(const TimePoint& start, const TimePoint& end) noexcept
@@ -29,7 +29,7 @@ static auto get_ms(const TimePoint& start, const TimePoint& end) noexcept
 
 static constexpr int sync_timeout = 50;
 
-static int total_read = 0;
+static int     total_read   = 0;
 static TimeRep max_blocking = 0;
 
 int readAsync(const TimePoint& t1) noexcept
@@ -38,23 +38,23 @@ int readAsync(const TimePoint& t1) noexcept
 
   do {
     auto ts = steady_clock::now();
-    status = dev.read(&buffer[total_read], sizeof(buffer) - total_read);
+    status  = dev.read(&buffer[total_read], sizeof(buffer) - total_read);
     auto te = steady_clock::now();
-    if(status > 0) total_read += status;
-    else if(get_ms(t1, ts) > 50)
+    if (status > 0) total_read += status;
+    else if (get_ms(t1, ts) > 50)
     {
       // After 50ms since we started, we give up
       break;
     }
     // Ensure that it didn't block for too long
     auto ms = get_ms(ts, te);
-    if(ms > max_blocking) max_blocking = ms;
-    if(ms > 10)
+    if (ms > max_blocking) max_blocking = ms;
+    if (ms > 10)
     {
       std::cerr << "Async read took too long! Required <10ms, took " << ms << "ms" << std::endl;
       exit(-5);
     }
-  } while(status >= 0 && total_read < sizeof(buffer));
+  } while (status >= 0 && total_read < sizeof(buffer));
   return status < 0 ? status : total_read;
 }
 
@@ -65,18 +65,18 @@ int readSync() noexcept
   int total_read = 0;
   do {
     auto ts = steady_clock::now();
-    status = dev.read(&buffer[total_read], sizeof(buffer) - total_read);
+    status  = dev.read(&buffer[total_read], sizeof(buffer) - total_read);
     auto te = steady_clock::now();
-    if(status > 0) total_read += status;
+    if (status > 0) total_read += status;
     // Ensure that it didn't block for too long
     auto ms = get_ms(ts, te);
-    if(ms > max_blocking) max_blocking = ms;
-    if(ms > sync_timeout + 50)
+    if (ms > max_blocking) max_blocking = ms;
+    if (ms > sync_timeout + 50)
     {
       std::cerr << "Read took too long! Required <" << sync_timeout + 50 << "ms, took " << ms << "ms" << std::endl;
       exit(-5);
     }
-  } while(status > 0 && total_read < sizeof(buffer));
+  } while (status > 0 && total_read < sizeof(buffer));
   return status < 0 ? status : total_read;
 }
 
@@ -88,16 +88,10 @@ int pusage(const char* name)
 
 int main(int argc, char** argv)
 {
-  if (argc < 3)
-  {
-    return pusage(argv[0]);
-  }
+  if (argc < 3) { return pusage(argv[0]); }
   bool async;
-  if(strcmp(argv[2], "sync") == 0)
-  {
-    async = false;
-  }
-  else if(strcmp(argv[2], "async") == 0)
+  if (strcmp(argv[2], "sync") == 0) { async = false; }
+  else if (strcmp(argv[2], "async") == 0)
   {
     async = true;
   }
@@ -110,7 +104,8 @@ int main(int argc, char** argv)
   int status = dev.open(argv[1]);
   if (status < 0)
   {
-    std::cerr << "Error opening port " << argv[1] << ": " << std::error_code(-status, std::system_category()).message() << std::endl;
+    std::cerr << "Error opening port " << argv[1] << ": " << std::error_code(-status, std::system_category()).message()
+              << std::endl;
     return -2;
   }
   std::cout << "Port open" << std::endl;
@@ -127,7 +122,7 @@ int main(int argc, char** argv)
 
   // --- Write data to port ---
   auto t1 = Clock::now();
-  status = dev.write(testpattern, sizeof(testpattern));
+  status  = dev.write(testpattern, sizeof(testpattern));
   auto t2 = Clock::now();
 
   if (status < 0)
@@ -141,17 +136,15 @@ int main(int argc, char** argv)
 
   if (status != sizeof(testpattern))
   {
-    std::cerr << "Write to port was incomplete: " << sizeof(testpattern) << " bytes requested " << status << " bytes written" << std::endl;
+    std::cerr << "Write to port was incomplete: " << sizeof(testpattern) << " bytes requested " << status
+              << " bytes written" << std::endl;
     return -4;
   }
 
   // --- Read data from port ---
-  
+
   t1 = Clock::now();
-  if(async)
-  {
-    status = readAsync(t1);
-  }
+  if (async) { status = readAsync(t1); }
   else
   {
     status = readSync();
@@ -169,7 +162,8 @@ int main(int argc, char** argv)
 
   if (status != sizeof(testpattern))
   {
-    std::cerr << "Error receiving bytes " << sizeof(testpattern) << " bytes sent " << status << " bytes received" << std::endl;
+    std::cerr << "Error receiving bytes " << sizeof(testpattern) << " bytes sent " << status << " bytes received"
+              << std::endl;
     return -5;
   }
 
