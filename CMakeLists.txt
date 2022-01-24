@@ -70,7 +70,8 @@ doxygen_add_docs(
       COMMAND Doxygen::doxybook 
         --input ${DOXYGEN_OUTPUT_DIRECTORY}/xml 
         --output ${PROJECT_SOURCE_DIR}/Documentation
-        -c ${PROJECT_SOURCE_DIR}/doxybook.json
+        -c ${PROJECT_SOURCE_DIR}/.doxybook/config.json
+        -t ${PROJECT_SOURCE_DIR}/.doxybook/templates
       MAIN_DEPENDENCY ${DOXYGEN_OUTPUT_DIRECTORY}/Doxyfile.xml
       COMMENT "Creating markdown documentation"
     )

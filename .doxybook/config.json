@@ -1,0 +1,15 @@
+{
+  "baseUrl": "",
+  "indexInFolders": true,
+  "linkSuffix": "/",
+  "linkLowercase":  false,
+  "indexClassesName": "Classes",
+  "indexFilesName": "Files",
+  "indexGroupsName": "Groups",
+  "indexNamespacesName": "Namespaces",
+  "indexRelatedPagesName": "Related",
+  "indexExamplesName": "Examples",
+  "mainPageInRoot": true,
+  "mainPageName": "ReadMe",
+  "useFolders":  false
+}
