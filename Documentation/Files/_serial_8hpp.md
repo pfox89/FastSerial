@@ -11,15 +11,15 @@ title: include/Serial.hpp
 
 | Name           |
 | -------------- |
-| **[Serial](Namespaces/namespace_serial.md)**  |
+| **[Serial](/Documentation/Namespaces/namespace_serial/)**  |
 
 ## Classes
 
 |                | Name           |
 | -------------- | -------------- |
-| struct | **[Serial::Frame](Classes/struct_serial_1_1_frame.md)** <br>Read buffer to accumulate reads so we can ensure we read a minimum amount of data.  |
-| struct | **[Serial::Device](Classes/struct_serial_1_1_device.md)**  |
-| struct | **[Serial::FrameBuffer](Classes/struct_serial_1_1_frame_buffer.md)** <br>Encapsulates a buffer to receive a frame, with a certain maximum size. This class allows consecutive polling of the device until desired amount of data has been received.  |
+| struct | **[Serial::Frame](/Documentation/Classes/struct_serial_1_1_frame/)** <br>Read buffer to accumulate reads so we can ensure we read a minimum amount of data.  |
+| struct | **[Serial::Device](/Documentation/Classes/struct_serial_1_1_device/)**  |
+| struct | **[Serial::FrameBuffer](/Documentation/Classes/struct_serial_1_1_frame_buffer/)** <br>Encapsulates a buffer to receive a frame, with a certain maximum size. This class allows consecutive polling of the device until desired amount of data has been received.  |
 
 
 
@@ -174,4 +174,4 @@ struct FrameBuffer : Frame
 
 -------------------------------
 
-Updated on 2022-01-24 at 13:50:34 -0500
+Updated on 2022-01-24 at 14:10:27 -0500

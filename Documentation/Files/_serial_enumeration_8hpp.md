@@ -11,20 +11,20 @@ title: include/SerialEnumeration.hpp
 
 | Name           |
 | -------------- |
-| **[Serial](Namespaces/namespace_serial.md)**  |
-| **[Serial::usb](Namespaces/namespace_serial_1_1usb.md)**  |
-| **[Serial::pci](Namespaces/namespace_serial_1_1pci.md)**  |
-| **[Serial::pnp](Namespaces/namespace_serial_1_1pnp.md)**  |
-| **[Serial::platform](Namespaces/namespace_serial_1_1platform.md)**  |
+| **[Serial](/Documentation/Namespaces/namespace_serial/)**  |
+| **[Serial::usb](/Documentation/Namespaces/namespace_serial_1_1usb/)**  |
+| **[Serial::pci](/Documentation/Namespaces/namespace_serial_1_1pci/)**  |
+| **[Serial::pnp](/Documentation/Namespaces/namespace_serial_1_1pnp/)**  |
+| **[Serial::platform](/Documentation/Namespaces/namespace_serial_1_1platform/)**  |
 
 ## Classes
 
 |                | Name           |
 | -------------- | -------------- |
-| struct | **[Serial::DeviceInfo](Classes/struct_serial_1_1_device_info.md)** <br>Information about device.  |
-| struct | **[Serial::Enum](Classes/struct_serial_1_1_enum.md)**  |
-| struct | **[Serial::PortIter](Classes/struct_serial_1_1_port_iter.md)** <br>Iterator to iterate over ports enumerator.  |
-| struct | **[Serial::PortInfo](Classes/struct_serial_1_1_port_info.md)** <br>Constexpr range template to allow enumerator to be used as a range.  |
+| struct | **[Serial::DeviceInfo](/Documentation/Classes/struct_serial_1_1_device_info/)** <br>Information about device.  |
+| struct | **[Serial::Enum](/Documentation/Classes/struct_serial_1_1_enum/)**  |
+| struct | **[Serial::PortIter](/Documentation/Classes/struct_serial_1_1_port_iter/)** <br>Iterator to iterate over ports enumerator.  |
+| struct | **[Serial::PortInfo](/Documentation/Classes/struct_serial_1_1_port_info/)** <br>Constexpr range template to allow enumerator to be used as a range.  |
 
 
 
@@ -207,4 +207,4 @@ namespace platform
 
 -------------------------------
 
-Updated on 2022-01-24 at 13:50:34 -0500
+Updated on 2022-01-24 at 14:10:27 -0500

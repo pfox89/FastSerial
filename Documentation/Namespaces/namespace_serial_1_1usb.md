@@ -11,7 +11,7 @@ title: Serial::usb
 
 |                | Name           |
 | -------------- | -------------- |
-| constexpr [PortInfo](Classes/struct_serial_1_1_port_info.md)< BusType::BUS_USB > | **[ports](Namespaces/namespace_serial_1_1usb.md#variable-ports)** <br>Enumerator range for USB ports.  |
+| constexpr [PortInfo](/Documentation/Classes/struct_serial_1_1_port_info/)< BusType::BUS_USB > | **[ports](/Documentation/Namespaces/namespace_serial_1_1usb/#variable-ports)** <br>Enumerator range for USB ports.  |
 
 
 
@@ -30,4 +30,4 @@ Enumerator range for USB ports.
 
 -------------------------------
 
-Updated on 2022-01-24 at 13:50:34 -0500
+Updated on 2022-01-24 at 14:10:27 -0500

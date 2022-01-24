@@ -13,37 +13,37 @@ Encapsulates a buffer to receive a frame, with a certain maximum size. This clas
 
 `#include <Serial.hpp>`
 
-Inherits from [Serial::Frame](Classes/struct_serial_1_1_frame.md)
+Inherits from [Serial::Frame](/Documentation/Classes/struct_serial_1_1_frame/)
 
 ## Public Functions
 
 |                | Name           |
 | -------------- | -------------- |
-| | **[FrameBuffer](Classes/struct_serial_1_1_frame_buffer.md#function-framebuffer)**(unsigned short desiredSize =MaxSize)<br>Create a frame.  |
-| int | **[desired](Classes/struct_serial_1_1_frame_buffer.md#function-desired)**(unsigned short desired)<br>Change number of bytes to receive before considering frame complete.  |
+| | **[FrameBuffer](/Documentation/Classes/struct_serial_1_1_frame_buffer/#function-framebuffer)**(unsigned short desiredSize =MaxSize)<br>Create a frame.  |
+| int | **[desired](/Documentation/Classes/struct_serial_1_1_frame_buffer/#function-desired)**(unsigned short desired)<br>Change number of bytes to receive before considering frame complete.  |
 
 ## Public Attributes
 
 |                | Name           |
 | -------------- | -------------- |
-| char | **[_dataBuffer](Classes/struct_serial_1_1_frame_buffer.md#variable--databuffer)** <br>Buffer to contain actual received data, starting with 2nd byte.  |
+| char | **[_dataBuffer](/Documentation/Classes/struct_serial_1_1_frame_buffer/#variable--databuffer)** <br>Buffer to contain actual received data, starting with 2nd byte.  |
 
 ## Additional inherited members
 
-**Public Functions inherited from [Serial::Frame](Classes/struct_serial_1_1_frame.md)**
+**Public Functions inherited from [Serial::Frame](/Documentation/Classes/struct_serial_1_1_frame/)**
 
 |                | Name           |
 | -------------- | -------------- |
-| void | **[reset](Classes/struct_serial_1_1_frame.md#function-reset)**(unsigned short desired)<br>Reset buffer state for new read operation.  |
+| void | **[reset](/Documentation/Classes/struct_serial_1_1_frame/#function-reset)**(unsigned short desired)<br>Reset buffer state for new read operation.  |
 
-**Public Attributes inherited from [Serial::Frame](Classes/struct_serial_1_1_frame.md)**
+**Public Attributes inherited from [Serial::Frame](/Documentation/Classes/struct_serial_1_1_frame/)**
 
 |                | Name           |
 | -------------- | -------------- |
-| unsigned short | **[status](Classes/struct_serial_1_1_frame.md#variable-status)** <br>Number of bytes read so far.  |
-| unsigned short | **[desired_size](Classes/struct_serial_1_1_frame.md#variable-desired-size)** <br>Total number of bytes to read, at minimum.  |
-| unsigned short | **[wait_time](Classes/struct_serial_1_1_frame.md#variable-wait-time)** <br>Amount of time spent waiting where no bytes arrived.  |
-| char | **[data](Classes/struct_serial_1_1_frame.md#variable-data)** <br>Flat data buffer (Size extended by subclass template)  |
+| unsigned short | **[status](/Documentation/Classes/struct_serial_1_1_frame/#variable-status)** <br>Number of bytes read so far.  |
+| unsigned short | **[desired_size](/Documentation/Classes/struct_serial_1_1_frame/#variable-desired-size)** <br>Total number of bytes to read, at minimum.  |
+| unsigned short | **[wait_time](/Documentation/Classes/struct_serial_1_1_frame/#variable-wait-time)** <br>Amount of time spent waiting where no bytes arrived.  |
+| char | **[data](/Documentation/Classes/struct_serial_1_1_frame/#variable-data)** <br>Flat data buffer (Size extended by subclass template)  |
 
 
 ## Detailed Description
@@ -100,4 +100,4 @@ Buffer to contain actual received data, starting with 2nd byte.
 
 -------------------------------
 
-Updated on 2022-01-24 at 13:50:34 -0500
+Updated on 2022-01-24 at 14:10:27 -0500

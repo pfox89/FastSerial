@@ -16,32 +16,32 @@ title: Serial::Device
 
 |                | Name           |
 | -------------- | -------------- |
-| enum class| **[Purge](Classes/struct_serial_1_1_device.md#enum-purge)** { TX = TCOFLUSH, RX = TCIFLUSH, All = TCIOFLUSH}<br>Describes which buffers should be purged.  |
-| enum class| **[Parity](Classes/struct_serial_1_1_device.md#enum-parity)** { None = 0, Even = 2, Odd = 1}<br>Describes parity scheme to be used by serial device.  |
-| enum class| **[Stop](Classes/struct_serial_1_1_device.md#enum-stop)** { OneBit = 0, TwoBits = 2}<br>Describes number of stop bits to be used for serial communication.  |
-| enum class| **[Event](Classes/struct_serial_1_1_device.md#enum-event)** { Overflow = 0x1, Overrun = 0x2, ParityError = 0x4, FrameError = 0x8, Break = 0x10}<br>Bits for describing events that occurred.  |
-| typedef int | **[HANDLE](Classes/struct_serial_1_1_device.md#typedef-handle)** <br>Definee platform-specific handle type to avoid pulling in platform headers.  |
+| enum class| **[Purge](/Documentation/Classes/struct_serial_1_1_device/#enum-purge)** { TX = TCOFLUSH, RX = TCIFLUSH, All = TCIOFLUSH}<br>Describes which buffers should be purged.  |
+| enum class| **[Parity](/Documentation/Classes/struct_serial_1_1_device/#enum-parity)** { None = 0, Even = 2, Odd = 1}<br>Describes parity scheme to be used by serial device.  |
+| enum class| **[Stop](/Documentation/Classes/struct_serial_1_1_device/#enum-stop)** { OneBit = 0, TwoBits = 2}<br>Describes number of stop bits to be used for serial communication.  |
+| enum class| **[Event](/Documentation/Classes/struct_serial_1_1_device/#enum-event)** { Overflow = 0x1, Overrun = 0x2, ParityError = 0x4, FrameError = 0x8, Break = 0x10}<br>Bits for describing events that occurred.  |
+| typedef int | **[HANDLE](/Documentation/Classes/struct_serial_1_1_device/#typedef-handle)** <br>Definee platform-specific handle type to avoid pulling in platform headers.  |
 
 ## Public Functions
 
 |                | Name           |
 | -------------- | -------------- |
-| | **[Device](Classes/struct_serial_1_1_device.md#function-device)**()<br>Default constructor.  |
-| | **[Device](Classes/struct_serial_1_1_device.md#function-device)**(const [Device](Classes/struct_serial_1_1_device.md) & ) =delete<br>Don't allow copying, we shouldn't have multiple instances trying to control a single device.  |
-| | **[Device](Classes/struct_serial_1_1_device.md#function-device)**([Device](Classes/struct_serial_1_1_device.md) && other)<br>Move constructor.  |
-| int | **[open](Classes/struct_serial_1_1_device.md#function-open)**(const char * port)<br>Open port at given path.  |
-| int | **[configure](Classes/struct_serial_1_1_device.md#function-configure)**(unsigned int baudRate, unsigned char dataBits, [Stop](Classes/struct_serial_1_1_device.md#enum-stop) stop, [Parity](Classes/struct_serial_1_1_device.md#enum-parity) parity, bool flowControl, unsigned short timeout)<br>Configure serial port settings after opening.  |
-| int | **[write](Classes/struct_serial_1_1_device.md#function-write)**(const void * data, unsigned count)<br>Write bytes to serial port.  |
-| int | **[read](Classes/struct_serial_1_1_device.md#function-read)**(void * data, unsigned count)<br>Read bytes from serial port.  |
-| int | **[read](Classes/struct_serial_1_1_device.md#function-read)**([Frame](Classes/struct_serial_1_1_frame.md) & f)<br>Read frame from serial port, in polled fashion. This can be called repeatedly until frame is complete.  |
-| int | **[receiveQueueLevel](Classes/struct_serial_1_1_device.md#function-receivequeuelevel)**()<br>Get number of bytes in receive buffer.  |
-| int | **[transmitQueueLevel](Classes/struct_serial_1_1_device.md#function-transmitqueuelevel)**()<br>Get number of bytes in transmit buffer.  |
-| int | **[events](Classes/struct_serial_1_1_device.md#function-events)**() |
-| int | **[flush](Classes/struct_serial_1_1_device.md#function-flush)**() |
-| int | **[purge](Classes/struct_serial_1_1_device.md#function-purge)**([Purge](Classes/struct_serial_1_1_device.md#enum-purge) type)<br>Purge serial port, clearing buffers of any unhandled data.  |
-| int | **[close](Classes/struct_serial_1_1_device.md#function-close)**()<br>Close serial port.  |
-| | **[~Device](Classes/struct_serial_1_1_device.md#function-~device)**() |
-| [HANDLE](Classes/struct_serial_1_1_device.md#typedef-handle) | **[native](Classes/struct_serial_1_1_device.md#function-native)**()<br>Get native handle to serial port.  |
+| | **[Device](/Documentation/Classes/struct_serial_1_1_device/#function-device)**()<br>Default constructor.  |
+| | **[Device](/Documentation/Classes/struct_serial_1_1_device/#function-device)**(const [Device](/Documentation/Classes/struct_serial_1_1_device/) & ) =delete<br>Don't allow copying, we shouldn't have multiple instances trying to control a single device.  |
+| | **[Device](/Documentation/Classes/struct_serial_1_1_device/#function-device)**([Device](/Documentation/Classes/struct_serial_1_1_device/) && other)<br>Move constructor.  |
+| int | **[open](/Documentation/Classes/struct_serial_1_1_device/#function-open)**(const char * port)<br>Open port at given path.  |
+| int | **[configure](/Documentation/Classes/struct_serial_1_1_device/#function-configure)**(unsigned int baudRate, unsigned char dataBits, [Stop](/Documentation/Classes/struct_serial_1_1_device/#enum-stop) stop, [Parity](/Documentation/Classes/struct_serial_1_1_device/#enum-parity) parity, bool flowControl, unsigned short timeout)<br>Configure serial port settings after opening.  |
+| int | **[write](/Documentation/Classes/struct_serial_1_1_device/#function-write)**(const void * data, unsigned count)<br>Write bytes to serial port.  |
+| int | **[read](/Documentation/Classes/struct_serial_1_1_device/#function-read)**(void * data, unsigned count)<br>Read bytes from serial port.  |
+| int | **[read](/Documentation/Classes/struct_serial_1_1_device/#function-read)**([Frame](/Documentation/Classes/struct_serial_1_1_frame/) & f)<br>Read frame from serial port, in polled fashion. This can be called repeatedly until frame is complete.  |
+| int | **[receiveQueueLevel](/Documentation/Classes/struct_serial_1_1_device/#function-receivequeuelevel)**()<br>Get number of bytes in receive buffer.  |
+| int | **[transmitQueueLevel](/Documentation/Classes/struct_serial_1_1_device/#function-transmitqueuelevel)**()<br>Get number of bytes in transmit buffer.  |
+| int | **[events](/Documentation/Classes/struct_serial_1_1_device/#function-events)**() |
+| int | **[flush](/Documentation/Classes/struct_serial_1_1_device/#function-flush)**() |
+| int | **[purge](/Documentation/Classes/struct_serial_1_1_device/#function-purge)**([Purge](/Documentation/Classes/struct_serial_1_1_device/#enum-purge) type)<br>Purge serial port, clearing buffers of any unhandled data.  |
+| int | **[close](/Documentation/Classes/struct_serial_1_1_device/#function-close)**()<br>Close serial port.  |
+| | **[~Device](/Documentation/Classes/struct_serial_1_1_device/#function-~device)**() |
+| [HANDLE](/Documentation/Classes/struct_serial_1_1_device/#typedef-handle) | **[native](/Documentation/Classes/struct_serial_1_1_device/#function-native)**()<br>Get native handle to serial port.  |
 
 ## Detailed Description
 
@@ -52,15 +52,15 @@ struct Serial::Device;
 
 **Note**: 
 
-  * In either mode, [read()](Classes/struct_serial_1_1_device.md#function-read) may return fewer bytes than requested. If you require a certain number of bytes, keep calling [read()](Classes/struct_serial_1_1_device.md#function-read) to get remaining bytes, unless it times out.
-  * If you need to buffer data read until you have a certain amount of data, set the timeout to a reasonable value (1-100ms), use the [FrameBuffer](Classes/struct_serial_1_1_frame_buffer.md) class and call [read(Frame&)](Classes/struct_serial_1_1_device.md#function-read) until it returns > 0 or [Frame::wait_time](Classes/struct_serial_1_1_frame.md#variable-wait-time) exceeds your desired timeout.
+  * In either mode, [read()](/Documentation/Classes/struct_serial_1_1_device/#function-read) may return fewer bytes than requested. If you require a certain number of bytes, keep calling [read()](/Documentation/Classes/struct_serial_1_1_device/#function-read) to get remaining bytes, unless it times out.
+  * If you need to buffer data read until you have a certain amount of data, set the timeout to a reasonable value (1-100ms), use the [FrameBuffer](/Documentation/Classes/struct_serial_1_1_frame_buffer/) class and call [read(Frame&)](/Documentation/Classes/struct_serial_1_1_device/#function-read) until it returns > 0 or [Frame::wait_time](/Documentation/Classes/struct_serial_1_1_frame/#variable-wait-time) exceeds your desired timeout.
   * Conventional serial devices and drivers were designed for 1980s serial terminals and modems, and aren't high-performance or precise In general, don't rely on timing accuracy better than 100ms. If you need more accurate timing, a custom device with custom drivers is the best option. 
 
 
 This class implements a very simple serial interface that should be sufficient for most use-cases. There are two primary modes:
 
-* First-byte wait, with timeout > 0. In this mode, [read()](Classes/struct_serial_1_1_device.md#function-read) will wait until at least one byte arrives or until `timeout` ms have elapsed.
-* Immediate, with timeout == 0. In this mode, [read()](Classes/struct_serial_1_1_device.md#function-read) will return immediately with whatever bytes have been read.
+* First-byte wait, with timeout > 0. In this mode, [read()](/Documentation/Classes/struct_serial_1_1_device/#function-read) will wait until at least one byte arrives or until `timeout` ms have elapsed.
+* Immediate, with timeout == 0. In this mode, [read()](/Documentation/Classes/struct_serial_1_1_device/#function-read) will return immediately with whatever bytes have been read.
 
 ## Public Types Documentation
 
@@ -245,10 +245,10 @@ Read frame from serial port, in polled fashion. This can be called repeatedly un
 
 **Parameters**: 
 
-  * **f** [Frame](Classes/struct_serial_1_1_frame.md) with buffer and state of reads. 
+  * **f** [Frame](/Documentation/Classes/struct_serial_1_1_frame/) with buffer and state of reads. 
 
 
-**Return**: == 0 [Frame](Classes/struct_serial_1_1_frame.md) is not yet complete > 0 Complete frame receieved, number of bytes < 0 Error occurred, std::error_code(-return, system_category()) for details. 
+**Return**: == 0 [Frame](/Documentation/Classes/struct_serial_1_1_frame/) is not yet complete > 0 Complete frame receieved, number of bytes < 0 Error occurred, std::error_code(-return, system_category()) for details. 
 
 **Remark**: This will add to the frame's wait_time if no bytes are received within the serial port's timeout interval. This wait_time can be checked to see if 
 
@@ -334,4 +334,4 @@ Get native handle to serial port.
 
 -------------------------------
 
-Updated on 2022-01-24 at 13:50:34 -0500
+Updated on 2022-01-24 at 14:10:27 -0500

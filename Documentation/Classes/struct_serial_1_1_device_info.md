@@ -17,14 +17,14 @@ Information about device.
 
 |                | Name           |
 | -------------- | -------------- |
-| const char * | **[id](Classes/struct_serial_1_1_device_info.md#variable-id)** <br>Logical device path (e.g. interface)  |
-| const char * | **[path](Classes/struct_serial_1_1_device_info.md#variable-path)** <br>Physical device path.  |
-| const char * | **[name](Classes/struct_serial_1_1_device_info.md#variable-name)** <br>[Device](Classes/struct_serial_1_1_device.md) name.  |
-| const char * | **[description](Classes/struct_serial_1_1_device_info.md#variable-description)** <br>[Device](Classes/struct_serial_1_1_device.md) description.  |
-| const char * | **[manufacturer](Classes/struct_serial_1_1_device_info.md#variable-manufacturer)** <br>[Device](Classes/struct_serial_1_1_device.md) manufacturer string.  |
-| unsigned short | **[vid](Classes/struct_serial_1_1_device_info.md#variable-vid)** <br>Numeric vendor id (VID on USB, VEN on PCI)  |
-| unsigned short | **[pid](Classes/struct_serial_1_1_device_info.md#variable-pid)** <br>Numeric device id (PID on USB, DEV on PCI)  |
-| BusType | **[type](Classes/struct_serial_1_1_device_info.md#variable-type)** <br>Type of bus device is connected to.  |
+| const char * | **[id](/Documentation/Classes/struct_serial_1_1_device_info/#variable-id)** <br>Logical device path (e.g. interface)  |
+| const char * | **[path](/Documentation/Classes/struct_serial_1_1_device_info/#variable-path)** <br>Physical device path.  |
+| const char * | **[name](/Documentation/Classes/struct_serial_1_1_device_info/#variable-name)** <br>[Device](/Documentation/Classes/struct_serial_1_1_device/) name.  |
+| const char * | **[description](/Documentation/Classes/struct_serial_1_1_device_info/#variable-description)** <br>[Device](/Documentation/Classes/struct_serial_1_1_device/) description.  |
+| const char * | **[manufacturer](/Documentation/Classes/struct_serial_1_1_device_info/#variable-manufacturer)** <br>[Device](/Documentation/Classes/struct_serial_1_1_device/) manufacturer string.  |
+| unsigned short | **[vid](/Documentation/Classes/struct_serial_1_1_device_info/#variable-vid)** <br>Numeric vendor id (VID on USB, VEN on PCI)  |
+| unsigned short | **[pid](/Documentation/Classes/struct_serial_1_1_device_info/#variable-pid)** <br>Numeric device id (PID on USB, DEV on PCI)  |
+| BusType | **[type](/Documentation/Classes/struct_serial_1_1_device_info/#variable-type)** <br>Type of bus device is connected to.  |
 
 ## Public Attributes Documentation
 
@@ -50,7 +50,7 @@ Physical device path.
 const char * name;
 ```
 
-[Device](Classes/struct_serial_1_1_device.md) name. 
+[Device](/Documentation/Classes/struct_serial_1_1_device/) name. 
 
 ### variable description
 
@@ -58,7 +58,7 @@ const char * name;
 const char * description;
 ```
 
-[Device](Classes/struct_serial_1_1_device.md) description. 
+[Device](/Documentation/Classes/struct_serial_1_1_device/) description. 
 
 ### variable manufacturer
 
@@ -66,7 +66,7 @@ const char * description;
 const char * manufacturer;
 ```
 
-[Device](Classes/struct_serial_1_1_device.md) manufacturer string. 
+[Device](/Documentation/Classes/struct_serial_1_1_device/) manufacturer string. 
 
 ### variable vid
 
@@ -94,4 +94,4 @@ Type of bus device is connected to.
 
 -------------------------------
 
-Updated on 2022-01-24 at 13:50:34 -0500
+Updated on 2022-01-24 at 14:10:27 -0500
