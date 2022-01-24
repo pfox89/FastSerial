@@ -53,6 +53,8 @@ struct Enum
 {
   Enum()            = default;
   Enum(const Enum& other) = delete;
+
+  /// Move constructor allows moving pointer
   Enum(Enum&& other) noexcept
   {
     _impl       = other._impl;
@@ -103,7 +105,8 @@ std::ostream& operator<<(std::ostream& os, const DeviceInfo& port) noexcept;
 /// Iterator to iterate over ports enumerator
 struct PortIter
 {
-  // Create iterator over ports using type mask
+  /// Create iterator over ports using type mask
+  /// \param type_mask Bitwise combination of any BusType values defining what kind of devices to include
   PortIter(unsigned type_mask) noexcept
     : _enum()
     , _status(_enum.begin(type_mask))
@@ -141,25 +144,31 @@ struct PortIter
   }
 
 #ifdef __cpp_exceptions
+  /// Get reference to device info for current enumerated device
   const DeviceInfo& operator*() const
   {
     if (_status <= 0) throw_error();
     return _info;
   }
 
+  /// Get pointer to device info for current enumerated device
   const DeviceInfo* operator->() const
   {
     if (_status <= 0) throw_error();
     return &_info;
   }
 #else
+  /// Get reference to device info for current enumerated device (exceptions disabled, no check for validity)
   const SerialDeviceInfo& operator*() const noexcept { return _info; }
 
+  /// Get pointer to device info for current enumerated device (exceptions disabled, no check for validity)
   const SerialDeviceInfo* operator->() const noexcept { return &_info; }
 #endif
 
+  /// Comparison operator does not inspect other iterator, only current status to determine the enumeration has reached the end 
   bool operator!=(const PortIter&) const noexcept { return (_status > 0); }
 
+  /// Get error that occurred while enumerating, if any 
   std::error_code error() const noexcept { return std::error_code(_status < 0 ? -_status : 0, std::system_category()); }
 
 private:
@@ -181,7 +190,9 @@ private:
 template<BusType type>
 struct PortInfo
 {
+  /// Get iterator to begin enumeration
   PortIter begin() const noexcept { return PortIter(static_cast<unsigned>(type)); }
+  /// Get dummy (invalid) iterator for end of enumeration
   PortIter end() const noexcept { return PortIter(INT32_MAX); }
 };
 
@@ -210,4 +221,5 @@ namespace platform
   /// Enumerator range for Platform ports
   static constexpr PortInfo<BusType::BUS_PLATFORM> ports;
 }
-}
+
+} // End namespace Serial

@@ -2,7 +2,6 @@
 
 /// \file Serial.hpp
 
-
 #include <system_error>
 #ifndef WIN32
 #include <termios.h>
@@ -29,7 +28,6 @@ struct Frame
   }
 };
 
-
 /// This class implements a very simple serial interface that should be sufficient for most use-cases.
 /// There are two primary modes:
 /// - First-byte wait, with timeout > 0. In this mode, read() will wait until at least one byte arrives or until `timeout` ms have elapsed.
@@ -47,7 +45,7 @@ struct Frame
 struct Device
 {
 
-// Define handle type here to avoid having to include Windows.h which pulls in a huge amount of junk
+/// Definee platform-specific handle type to avoid pulling in platform headers
 #ifdef WIN32
   typedef void* HANDLE;
 #else
@@ -193,7 +191,7 @@ private:
 };
 
 /// \brief Encapsulates a buffer to receive a frame, with a certain maximum size.
-/// This class allows consecutive polling of the 
+/// This class allows consecutive polling of the device until desired amount of data has been received
 template<unsigned short MaxSize>
 struct FrameBuffer : Frame
 {
@@ -213,7 +211,7 @@ struct FrameBuffer : Frame
     desired_size = desired;
     return 0;
   }
-
+  /// Buffer to contain actual received data, starting with 2nd byte
   char _dataBuffer[MaxSize - 1];
 };
 

@@ -1,3 +1,18 @@
+---
+title: ReadMe.md
+
+---
+
+# ReadMe.md
+
+
+
+
+
+
+## Source code
+
+```markdown
 # Fast Serial library
 This library is intended to provide a cross platform library that implements the following:
 - Serial port enumeration with friendly names and physical device paths.
@@ -32,3 +47,9 @@ Then, wait_time can be used to keep track of how long has been spent waiting for
 Automated testing can be performed with ctest by invoking the "test" target in the build directory, e.g. `ninja test` or by running `ctest` in the same folder
 
 In order to successfully run loopback tests, a serial port configured to loop back output is required. The device path can be specified to cmake during the configure step with `-DLOOPBACK_SERIALPORT=<device_path>`.
+```
+
+
+-------------------------------
+
+Updated on 2022-01-24 at 13:50:34 -0500
