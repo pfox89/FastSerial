@@ -5,7 +5,7 @@
 
 |                | Name           |
 | -------------- | -------------- |
-| constexpr [PortInfo](struct_serial_1_1_port_info/)< BusType::BUS_USB > | **[ports](namespace_serial_1_1usb/#variable-ports)** <br>Enumerator range for USB ports.  |
+| constexpr [PortInfo](struct_serial_1_1_port_info.md)< BusType::BUS_USB > | **[ports](namespace_serial_1_1usb.md#variable-ports)** <br>Enumerator range for USB ports.  |
 
 
 
@@ -24,4 +24,4 @@ Enumerator range for USB ports.
 
 -------------------------------
 
-Updated on 2022-01-24 at 14:34:17 -0500
+Updated on 2022-01-24 at 14:35:49 -0500

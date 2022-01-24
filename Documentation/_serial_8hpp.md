@@ -5,15 +5,15 @@
 
 | Name           |
 | -------------- |
-| **[Serial](namespace_serial/)**  |
+| **[Serial](namespace_serial.md)**  |
 
 ## Classes
 
 |                | Name           |
 | -------------- | -------------- |
-| struct | **[Serial::Frame](struct_serial_1_1_frame/)** <br>Read buffer to accumulate reads so we can ensure we read a minimum amount of data.  |
-| struct | **[Serial::Device](struct_serial_1_1_device/)**  |
-| struct | **[Serial::FrameBuffer](struct_serial_1_1_frame_buffer/)** <br>Encapsulates a buffer to receive a frame, with a certain maximum size. This class allows consecutive polling of the device until desired amount of data has been received.  |
+| struct | **[Serial::Frame](struct_serial_1_1_frame.md)** <br>Read buffer to accumulate reads so we can ensure we read a minimum amount of data.  |
+| struct | **[Serial::Device](struct_serial_1_1_device.md)**  |
+| struct | **[Serial::FrameBuffer](struct_serial_1_1_frame_buffer.md)** <br>Encapsulates a buffer to receive a frame, with a certain maximum size. This class allows consecutive polling of the device until desired amount of data has been received.  |
 
 
 
@@ -168,4 +168,4 @@ struct FrameBuffer : Frame
 
 -------------------------------
 
-Updated on 2022-01-24 at 14:34:17 -0500
+Updated on 2022-01-24 at 14:35:49 -0500

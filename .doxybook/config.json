@@ -1,7 +1,7 @@
 {
   "baseUrl": "",
   "indexInFolders": true,
-  "linkSuffix": "/",
+  "linkSuffix": ".md",
   "linkLowercase":  false,
   "indexClassesName": "Classes",
   "indexFilesName": "Files",

@@ -9,16 +9,16 @@ This library is intended to provide a cross platform library that implements the
 
 # Serial Enumeration
 
-Serial enumeration is performed by the [Serial::Enum](struct_serial_1_1_enum/) class in [SerialEnumeration.hpp]. In general, the following procedure can be used:
+Serial enumeration is performed by the [Serial::Enum](struct_serial_1_1_enum.md) class in [SerialEnumeration.hpp]. In general, the following procedure can be used:
 
-* Call [Serial::Enum::begin()](struct_serial_1_1_enum/#function-begin) to begin enumeration. Desired device types are specified as a bitmask
-* Call [Serial::Enum::next()](struct_serial_1_1_enum/#function-next) to get device information for the next enumerated device. If it returns > 0, copy any information in the DeviceInfo struct.
-* When [Serial::Enum::next()](struct_serial_1_1_enum/#function-next) returns 0, no more devices can be enumerated.
-* Call [Serial::Enum::clear()](struct_serial_1_1_enum/#function-clear) to free resources associated with the serial enumeration object when you are done.
+* Call [Serial::Enum::begin()](struct_serial_1_1_enum.md#function-begin) to begin enumeration. Desired device types are specified as a bitmask
+* Call [Serial::Enum::next()](struct_serial_1_1_enum.md#function-next) to get device information for the next enumerated device. If it returns > 0, copy any information in the DeviceInfo struct.
+* When [Serial::Enum::next()](struct_serial_1_1_enum.md#function-next) returns 0, no more devices can be enumerated.
+* Call [Serial::Enum::clear()](struct_serial_1_1_enum.md#function-clear) to free resources associated with the serial enumeration object when you are done.
 
 # Serial Device
 
-The [Serial::Device](struct_serial_1_1_device/) class in [Serial.hpp](_serial_8hpp/#file-serial.hpp) implements a simple interface for a serial port. The goal here is to avoid complex, error-prone edge cases and focus on the most common, widely-supported modes.
+The [Serial::Device](struct_serial_1_1_device.md) class in [Serial.hpp](_serial_8hpp.md#file-serial.hpp) implements a simple interface for a serial port. The goal here is to avoid complex, error-prone edge cases and focus on the most common, widely-supported modes.
 
 To this end, there are 2 main modes:
 
@@ -30,7 +30,7 @@ To this end, there are 2 main modes:
 > 
 > 
 
-[Serial::FrameBuffer](struct_serial_1_1_frame_buffer/) can help to buffer data until enough data has been received to process. If this is passed to Serial::Device::read(FrameBuffer&), it will incrementally read into the buffer and only return >0 if the complete frame has been received. Then, wait_time can be used to keep track of how long has been spent waiting for bytes to be received, which allows checking for a frame timeout.
+[Serial::FrameBuffer](struct_serial_1_1_frame_buffer.md) can help to buffer data until enough data has been received to process. If this is passed to Serial::Device::read(FrameBuffer&), it will incrementally read into the buffer and only return >0 if the complete frame has been received. Then, wait_time can be used to keep track of how long has been spent waiting for bytes to be received, which allows checking for a frame timeout.
 
 
 # Testing
@@ -41,4 +41,4 @@ In order to successfully run loopback tests, a serial port configured to loop ba
 
 -------------------------------
 
-Updated on 2022-01-24 at 14:34:17 -0500
+Updated on 2022-01-24 at 14:35:49 -0500

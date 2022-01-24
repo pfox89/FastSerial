@@ -6,37 +6,37 @@ Encapsulates a buffer to receive a frame, with a certain maximum size. This clas
 
 `#include <Serial.hpp>`
 
-Inherits from [Serial::Frame](struct_serial_1_1_frame/)
+Inherits from [Serial::Frame](struct_serial_1_1_frame.md)
 
 ## Public Functions
 
 |                | Name           |
 | -------------- | -------------- |
-| | **[FrameBuffer](struct_serial_1_1_frame_buffer/#function-framebuffer)**(unsigned short desiredSize =MaxSize)<br>Create a frame.  |
-| int | **[desired](struct_serial_1_1_frame_buffer/#function-desired)**(unsigned short desired)<br>Change number of bytes to receive before considering frame complete.  |
+| | **[FrameBuffer](struct_serial_1_1_frame_buffer.md#function-framebuffer)**(unsigned short desiredSize =MaxSize)<br>Create a frame.  |
+| int | **[desired](struct_serial_1_1_frame_buffer.md#function-desired)**(unsigned short desired)<br>Change number of bytes to receive before considering frame complete.  |
 
 ## Public Attributes
 
 |                | Name           |
 | -------------- | -------------- |
-| char | **[_dataBuffer](struct_serial_1_1_frame_buffer/#variable--databuffer)** <br>Buffer to contain actual received data, starting with 2nd byte.  |
+| char | **[_dataBuffer](struct_serial_1_1_frame_buffer.md#variable--databuffer)** <br>Buffer to contain actual received data, starting with 2nd byte.  |
 
 ## Additional inherited members
 
-**Public Functions inherited from [Serial::Frame](struct_serial_1_1_frame/)**
+**Public Functions inherited from [Serial::Frame](struct_serial_1_1_frame.md)**
 
 |                | Name           |
 | -------------- | -------------- |
-| void | **[reset](struct_serial_1_1_frame/#function-reset)**(unsigned short desired)<br>Reset buffer state for new read operation.  |
+| void | **[reset](struct_serial_1_1_frame.md#function-reset)**(unsigned short desired)<br>Reset buffer state for new read operation.  |
 
-**Public Attributes inherited from [Serial::Frame](struct_serial_1_1_frame/)**
+**Public Attributes inherited from [Serial::Frame](struct_serial_1_1_frame.md)**
 
 |                | Name           |
 | -------------- | -------------- |
-| unsigned short | **[status](struct_serial_1_1_frame/#variable-status)** <br>Number of bytes read so far.  |
-| unsigned short | **[desired_size](struct_serial_1_1_frame/#variable-desired-size)** <br>Total number of bytes to read, at minimum.  |
-| unsigned short | **[wait_time](struct_serial_1_1_frame/#variable-wait-time)** <br>Amount of time spent waiting where no bytes arrived.  |
-| char | **[data](struct_serial_1_1_frame/#variable-data)** <br>Flat data buffer (Size extended by subclass template)  |
+| unsigned short | **[status](struct_serial_1_1_frame.md#variable-status)** <br>Number of bytes read so far.  |
+| unsigned short | **[desired_size](struct_serial_1_1_frame.md#variable-desired-size)** <br>Total number of bytes to read, at minimum.  |
+| unsigned short | **[wait_time](struct_serial_1_1_frame.md#variable-wait-time)** <br>Amount of time spent waiting where no bytes arrived.  |
+| char | **[data](struct_serial_1_1_frame.md#variable-data)** <br>Flat data buffer (Size extended by subclass template)  |
 
 
 ## Detailed Description
@@ -93,4 +93,4 @@ Buffer to contain actual received data, starting with 2nd byte.
 
 -------------------------------
 
-Updated on 2022-01-24 at 14:34:17 -0500
+Updated on 2022-01-24 at 14:35:49 -0500

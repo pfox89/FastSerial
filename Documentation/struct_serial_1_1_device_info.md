@@ -10,14 +10,14 @@ Information about device.
 
 |                | Name           |
 | -------------- | -------------- |
-| const char * | **[id](struct_serial_1_1_device_info/#variable-id)** <br>Logical device path (e.g. interface)  |
-| const char * | **[path](struct_serial_1_1_device_info/#variable-path)** <br>Physical device path.  |
-| const char * | **[name](struct_serial_1_1_device_info/#variable-name)** <br>[Device](struct_serial_1_1_device/) name.  |
-| const char * | **[description](struct_serial_1_1_device_info/#variable-description)** <br>[Device](struct_serial_1_1_device/) description.  |
-| const char * | **[manufacturer](struct_serial_1_1_device_info/#variable-manufacturer)** <br>[Device](struct_serial_1_1_device/) manufacturer string.  |
-| unsigned short | **[vid](struct_serial_1_1_device_info/#variable-vid)** <br>Numeric vendor id (VID on USB, VEN on PCI)  |
-| unsigned short | **[pid](struct_serial_1_1_device_info/#variable-pid)** <br>Numeric device id (PID on USB, DEV on PCI)  |
-| BusType | **[type](struct_serial_1_1_device_info/#variable-type)** <br>Type of bus device is connected to.  |
+| const char * | **[id](struct_serial_1_1_device_info.md#variable-id)** <br>Logical device path (e.g. interface)  |
+| const char * | **[path](struct_serial_1_1_device_info.md#variable-path)** <br>Physical device path.  |
+| const char * | **[name](struct_serial_1_1_device_info.md#variable-name)** <br>[Device](struct_serial_1_1_device.md) name.  |
+| const char * | **[description](struct_serial_1_1_device_info.md#variable-description)** <br>[Device](struct_serial_1_1_device.md) description.  |
+| const char * | **[manufacturer](struct_serial_1_1_device_info.md#variable-manufacturer)** <br>[Device](struct_serial_1_1_device.md) manufacturer string.  |
+| unsigned short | **[vid](struct_serial_1_1_device_info.md#variable-vid)** <br>Numeric vendor id (VID on USB, VEN on PCI)  |
+| unsigned short | **[pid](struct_serial_1_1_device_info.md#variable-pid)** <br>Numeric device id (PID on USB, DEV on PCI)  |
+| BusType | **[type](struct_serial_1_1_device_info.md#variable-type)** <br>Type of bus device is connected to.  |
 
 ## Public Attributes Documentation
 
@@ -43,7 +43,7 @@ Physical device path.
 const char * name;
 ```
 
-[Device](struct_serial_1_1_device/) name. 
+[Device](struct_serial_1_1_device.md) name. 
 
 ### variable description
 
@@ -51,7 +51,7 @@ const char * name;
 const char * description;
 ```
 
-[Device](struct_serial_1_1_device/) description. 
+[Device](struct_serial_1_1_device.md) description. 
 
 ### variable manufacturer
 
@@ -59,7 +59,7 @@ const char * description;
 const char * manufacturer;
 ```
 
-[Device](struct_serial_1_1_device/) manufacturer string. 
+[Device](struct_serial_1_1_device.md) manufacturer string. 
 
 ### variable vid
 
@@ -87,4 +87,4 @@ Type of bus device is connected to.
 
 -------------------------------
 
-Updated on 2022-01-24 at 14:34:17 -0500
+Updated on 2022-01-24 at 14:35:49 -0500

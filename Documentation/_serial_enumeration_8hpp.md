@@ -5,20 +5,20 @@
 
 | Name           |
 | -------------- |
-| **[Serial](namespace_serial/)**  |
-| **[Serial::usb](namespace_serial_1_1usb/)**  |
-| **[Serial::pci](namespace_serial_1_1pci/)**  |
-| **[Serial::pnp](namespace_serial_1_1pnp/)**  |
-| **[Serial::platform](namespace_serial_1_1platform/)**  |
+| **[Serial](namespace_serial.md)**  |
+| **[Serial::usb](namespace_serial_1_1usb.md)**  |
+| **[Serial::pci](namespace_serial_1_1pci.md)**  |
+| **[Serial::pnp](namespace_serial_1_1pnp.md)**  |
+| **[Serial::platform](namespace_serial_1_1platform.md)**  |
 
 ## Classes
 
 |                | Name           |
 | -------------- | -------------- |
-| struct | **[Serial::DeviceInfo](struct_serial_1_1_device_info/)** <br>Information about device.  |
-| struct | **[Serial::Enum](struct_serial_1_1_enum/)**  |
-| struct | **[Serial::PortIter](struct_serial_1_1_port_iter/)** <br>Iterator to iterate over ports enumerator.  |
-| struct | **[Serial::PortInfo](struct_serial_1_1_port_info/)** <br>Constexpr range template to allow enumerator to be used as a range.  |
+| struct | **[Serial::DeviceInfo](struct_serial_1_1_device_info.md)** <br>Information about device.  |
+| struct | **[Serial::Enum](struct_serial_1_1_enum.md)**  |
+| struct | **[Serial::PortIter](struct_serial_1_1_port_iter.md)** <br>Iterator to iterate over ports enumerator.  |
+| struct | **[Serial::PortInfo](struct_serial_1_1_port_info.md)** <br>Constexpr range template to allow enumerator to be used as a range.  |
 
 
 
@@ -201,4 +201,4 @@ namespace platform
 
 -------------------------------
 
-Updated on 2022-01-24 at 14:34:17 -0500
+Updated on 2022-01-24 at 14:35:49 -0500
