@@ -15,6 +15,7 @@
 | enum class| **[Stop](struct_serial_1_1_device.md#enum-stop)** { OneBit = 0, TwoBits = 2}<br>Describes number of stop bits to be used for serial communication.  |
 | enum class| **[Event](struct_serial_1_1_device.md#enum-event)** { Overflow = 0x1, Overrun = 0x2, ParityError = 0x4, FrameError = 0x8, Break = 0x10}<br>Bits for describing events that occurred.  |
 | typedef int | **[HANDLE](struct_serial_1_1_device.md#typedef-handle)** <br>Definee platform-specific handle type to avoid pulling in platform headers.  |
+| typedef timespec | **[TIMESTAMP](struct_serial_1_1_device.md#typedef-timestamp)**  |
 
 ## Public Functions
 
@@ -36,6 +37,7 @@
 | int | **[close](struct_serial_1_1_device.md#function-close)**()<br>Close serial port.  |
 | | **[~Device](struct_serial_1_1_device.md#function-~device)**() |
 | [HANDLE](struct_serial_1_1_device.md#typedef-handle) | **[native](struct_serial_1_1_device.md#function-native)**()<br>Get native handle to serial port.  |
+| unsigned long | **[timestamp](struct_serial_1_1_device.md#function-timestamp)**() const |
 
 ## Detailed Description
 
@@ -114,6 +116,13 @@ typedef int Serial::Device::HANDLE;
 ```
 
 Definee platform-specific handle type to avoid pulling in platform headers. 
+
+### typedef TIMESTAMP
+
+```cpp
+typedef timespec Serial::Device::TIMESTAMP;
+```
+
 
 ## Public Functions Documentation
 
@@ -326,6 +335,13 @@ inline HANDLE native()
 
 Get native handle to serial port. 
 
+### function timestamp
+
+```cpp
+unsigned long timestamp() const
+```
+
+
 -------------------------------
 
-Updated on 2022-01-24 at 14:35:49 -0500
+Updated on 2022-03-18 at 12:53:42 -0400

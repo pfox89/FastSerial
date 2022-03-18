@@ -39,6 +39,12 @@ int Device::open(const char* port) noexcept
 
   if (false == SetCommMask(_hPort, event_mask)) return -static_cast<int>(GetLastError());
 
+  LARGE_INTEGER temp;
+  QueryPerformanceFrequency(&temp);
+  _resolution = temp.QuadPart;
+  QueryPerformanceCounter(&temp);
+  _openTime = temp.QuadPart;
+
   return 0;
 }
 
@@ -196,6 +202,13 @@ int Device::close() noexcept
     _hPort = INVALID_HANDLE_VALUE;
   }
   return error;
+}
+
+unsigned long Device::timestamp() const noexcept
+{ 
+  LARGE_INTEGER temp; 
+  QueryPerformanceCounter(&temp);
+  return ((temp.QuadPart - _openTime) * 1000) / _resolution;
 }
 
 } // End namespace Serial

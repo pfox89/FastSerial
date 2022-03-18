@@ -5,6 +5,8 @@
 #include <system_error>
 #ifndef WIN32
 #include <termios.h>
+#else
+#include <ctime>
 #endif
 
 namespace Serial
@@ -48,10 +50,12 @@ struct Device
 /// Definee platform-specific handle type to avoid pulling in platform headers
 #ifdef WIN32
   typedef void* HANDLE;
+  typedef long long TIMESTAMP;
 #else
-  typedef int HANDLE;
+  typedef int       HANDLE;
+  typedef timespec TIMESTAMP;
 #endif
-
+  
   /// Describes which buffers should be purged
   enum class Purge
   {
@@ -174,13 +178,21 @@ struct Device
   /// Get native handle to serial port
   HANDLE native() noexcept { return _hPort; }
 
+  /// \brief Get number of ms since bus was opened to precisely time events
+  /// \return > 0 Number of ms since bus was opened
+  ///         < 0 Error occurred, std::error_code(-return, system_category()) for details.
+  /// \remarks Timer will overflow after about 20 days of continuous operation. Don't leave a port open for this long!
+  long timestamp() const noexcept;
+
 private:
   HANDLE _hPort;
 
   unsigned short _timeout;
+  TIMESTAMP      _openTime;
 #ifdef _WIN32
   unsigned long _events;
   unsigned long _errors;
+  TIMESTAMP     _resolution;
 #else
   int _overflowEvents;
   int _overrunEvents;

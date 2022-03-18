@@ -27,6 +27,8 @@
 #include <system_error>
 #ifndef WIN32
 #include <termios.h>
+#else
+#include <ctime>
 #endif
 
 namespace Serial
@@ -52,10 +54,12 @@ struct Device
 
 #ifdef WIN32
   typedef void* HANDLE;
+  typedef long long TIMESTAMP;
 #else
-  typedef int HANDLE;
+  typedef int       HANDLE;
+  typedef timespec TIMESTAMP;
 #endif
-
+  
   enum class Purge
   {
 #ifdef WIN32
@@ -129,13 +133,17 @@ struct Device
 
   HANDLE native() noexcept { return _hPort; }
 
+  unsigned long timestamp() const noexcept;
+
 private:
   HANDLE _hPort;
 
   unsigned short _timeout;
+  TIMESTAMP      _openTime;
 #ifdef _WIN32
   unsigned long _events;
   unsigned long _errors;
+  TIMESTAMP     _resolution;
 #else
   int _overflowEvents;
   int _overrunEvents;
@@ -168,4 +176,4 @@ struct FrameBuffer : Frame
 
 -------------------------------
 
-Updated on 2022-01-24 at 14:35:49 -0500
+Updated on 2022-03-18 at 12:53:42 -0400

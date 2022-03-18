@@ -11,6 +11,16 @@
 
 #define INVALID_HANDLE_VALUE -1
 
+namespace
+{
+  unsigned long diff_ms(const timespec& start, const timespec& stop)
+  {
+    unsigned long ms = (stop.tv_sec - start.tv_sec) * 1000;
+    ms += (stop.tv_nsec - start.tv_nsec) / 1000000;
+    return ms;
+  }
+}
+
 namespace Serial
 {
   Device::Device() noexcept
@@ -30,6 +40,8 @@ namespace Serial
     _hPort = ::open(port, O_RDWR | O_NOCTTY);
 
     if (INVALID_HANDLE_VALUE == _hPort) return -errno;
+    if (clock_gettime(CLOCK_MONOTONIC, &_openTime) == -1) return -errno;
+    
     return 0;
   }
 
@@ -358,4 +370,10 @@ namespace Serial
     }
     return error;
   }
-}
+
+  long Device::timestamp() const noexcept { 
+    timespec tv;
+    if (clock_gettime(CLOCK_MONOTONIC, &tv) == 0) return diff_ms(_openTime, tv);
+    else
+      return -errno;
+  }
