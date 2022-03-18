@@ -8,8 +8,8 @@ else()
 endif()
 
 # Add source to this project's executable.
-add_library(fastserial STATIC ${SERIALPP_SOURCES}  )
-target_include_directories(fastserial PUBLIC ${PROJECT_SOURCE_DIR}/include)
+add_library(serial STATIC ${SERIALPP_SOURCES}  )
+target_include_directories(serial PUBLIC ${PROJECT_SOURCE_DIR}/include)
 
 if(WIN32)
   set(LINK_TARGETS Cfgmgr32)
@@ -18,5 +18,5 @@ else()
   set(LINK_TARGETS udev)
 endif()
 
-target_link_libraries(fastserial PUBLIC ${LINK_TARGETS})
+target_link_libraries(serial PUBLIC ${LINK_TARGETS})
 

@@ -204,11 +204,11 @@ int Device::close() noexcept
   return error;
 }
 
-unsigned long Device::timestamp() const noexcept
+long Device::timestamp() const noexcept
 { 
   LARGE_INTEGER temp; 
   QueryPerformanceCounter(&temp);
-  return ((temp.QuadPart - _openTime) * 1000) / _resolution;
+  return static_cast<long>(((temp.QuadPart - _openTime) * 1000) / _resolution);
 }
 
 } // End namespace Serial

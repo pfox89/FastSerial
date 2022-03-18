@@ -1,14 +1,14 @@
 add_executable(EnumerationTest "EnumerationTest.cpp")
-target_link_libraries(EnumerationTest fastserial)
+target_link_libraries(EnumerationTest serial)
 
 add_test(NAME EnumerationTest COMMAND EnumerationTest)
 set_tests_properties(EnumerationTest PROPERTIES TIMEOUT 10)
 
 add_executable(LoopbackTest "LoopbackTest.cpp")
-target_link_libraries(LoopbackTest fastserial)
+target_link_libraries(LoopbackTest serial)
 
 add_executable(TimeoutTest "TimeoutTest.cpp")
-target_link_libraries(TimeoutTest fastserial)
+target_link_libraries(TimeoutTest serial)
 
 
 if(LOOPBACK_TESTS)

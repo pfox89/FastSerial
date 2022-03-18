@@ -37,7 +37,7 @@
 | int | **[close](struct_serial_1_1_device.md#function-close)**()<br>Close serial port.  |
 | | **[~Device](struct_serial_1_1_device.md#function-~device)**() |
 | [HANDLE](struct_serial_1_1_device.md#typedef-handle) | **[native](struct_serial_1_1_device.md#function-native)**()<br>Get native handle to serial port.  |
-| unsigned long | **[timestamp](struct_serial_1_1_device.md#function-timestamp)**() const |
+| long | **[timestamp](struct_serial_1_1_device.md#function-timestamp)**() const<br>Get number of ms since bus was opened to precisely time events.  |
 
 ## Detailed Description
 
@@ -338,10 +338,15 @@ Get native handle to serial port.
 ### function timestamp
 
 ```cpp
-unsigned long timestamp() const
+long timestamp() const
 ```
 
+Get number of ms since bus was opened to precisely time events. 
+
+**Return**: > 0 Number of ms since bus was opened < 0 Error occurred, std::error_code(-return, system_category()) for details. 
+
+**Remark**: Timer will overflow after about 20 days of continuous operation. Don't leave a port open for this long! 
 
 -------------------------------
 
-Updated on 2022-03-18 at 12:53:42 -0400
+Updated on 2022-03-18 at 13:06:36 -0400

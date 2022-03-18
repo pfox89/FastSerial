@@ -3,7 +3,7 @@
 #
 cmake_minimum_required (VERSION 3.8)
 
-project (FastSerial
+project (Serial
         DESCRIPTION "Simple, cross-platform library for interacting with serial ports in C++")
 
 find_package(Doxygen)
