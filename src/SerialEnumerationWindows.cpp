@@ -86,7 +86,7 @@ struct SerialEnumImpl
 
       // Allocate memory for device interface list
       _deviceInterfaceList = make_inline_wstr(list_size * sizeof(WCHAR));
-      if (false == _deviceInterfaceList) { return -ERROR_NOT_ENOUGH_MEMORY; }
+      if (!_deviceInterfaceList) { return -ERROR_NOT_ENOUGH_MEMORY; }
 
       // Retrieve device interface list
       cr = CM_Get_Device_Interface_ListW(
@@ -382,7 +382,7 @@ private:
     {
       _wbuf.reset();
       _wbuf = make_inline_wstr(size);
-      if (false == _wbuf) return false;
+      if (!_wbuf) return false;
       _wbuf->size = static_cast<unsigned short>(size);
     }
     else
